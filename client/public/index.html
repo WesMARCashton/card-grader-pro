@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CardGrade Pro - AI-Powered Card Grading</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: white;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Auth Styles */
+    .auth-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .auth-logo {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 32px;
+    }
+
+    .auth-title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .form-input:focus {
+      border-color: #a855f7;
+      background: rgba(168,85,247,0.1);
+    }
+
+    .form-input::placeholder {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px rgba(168,85,247,0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .auth-toggle {
+      text-align: center;
+      margin-top: 24px;
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+    }
+
+    .auth-toggle a {
+      color: #a855f7;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .auth-toggle a:hover {
+      text-decoration: underline;
+    }
+
+    .demo-box {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(168,85,247,0.1);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .demo-box strong {
+      color: #c084fc;
+    }
+
+    .error-message {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 12px;
+      padding: 16px;
+      color: #fca5a5;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    /* Header */
+    .header {
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-name {
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+    }
+
+    .btn-logout {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 16px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Upload Section */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .upload-label {
+      margin-bottom: 12px;
+      font-weight: 500;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .upload-label .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .upload-label .required {
+      color: #ef4444;
+      font-size: 12px;
+    }
+
+    .upload-label .optional {
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+    }
+
+    .upload-zone {
+      position: relative;
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(255,255,255,0.02);
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-zone:hover {
+      border-color: #a855f7;
+      background: rgba(168,85,247,0.05);
+    }
+
+    .upload-zone.has-image {
+      padding: 12px;
+      border-style: solid;
+      border-color: rgba(168,85,247,0.5);
+    }
+
+    .upload-zone .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .upload-zone .text {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .upload-zone .subtext {
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .upload-zone img {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 12px;
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .clear-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      background: rgba(0,0,0,0.6);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .clear-btn:hover {
+      background: rgba(239,68,68,0.8);
+    }
+
+    /* Grade Button */
+    .grade-section {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .btn-grade {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 48px;
+      font-size: 18px;
+    }
+
+    .btn-grade.loading {
+      pointer-events: none;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    /* Results */
+    .results {
+      display: none;
+    }
+
+    .results.visible {
+      display: block;
+    }
+
+    .result-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .result-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 16px;
+    }
+
+    /* Overall Grade */
+    .overall-grade {
+      text-align: center;
+      padding: 32px;
+    }
+
+    .overall-grade .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 8px;
+    }
+
+    .overall-grade .score {
+      font-size: 72px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+
+    .overall-grade .grade-name {
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .overall-grade .psa-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.1);
+      padding: 8px 20px;
+      border-radius: 100px;
+      margin-top: 16px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* Card Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+    }
+
+    .info-item .label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 4px;
+    }
+
+    .info-item .value {
+      font-weight: 500;
+    }
+
+    /* Grade Breakdown */
+    .grade-item {
+      display: flex;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .grade-item:last-child {
+      border-bottom: none;
+    }
+
+    .grade-item .name {
+      width: 100px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .grade-item .ratio {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 2px;
+    }
+
+    .grade-item .bar {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      margin: 0 16px;
+      overflow: hidden;
+    }
+
+    .grade-item .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s ease-out;
+    }
+
+    .grade-item .score {
+      width: 48px;
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    /* Notes */
+    .notes-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .notes-section h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 16px;
+    }
+
+    .note-item {
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .note-item .category {
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .note-item .text {
+      color: rgba(255,255,255,0.7);
+      margin-left: 8px;
+    }
+
+    /* Summary */
+    .summary-text {
+      color: rgba(255,255,255,0.8);
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .market-notes {
+      margin-top: 20px;
+      padding: 16px;
+      background: rgba(168,85,247,0.1);
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 12px;
+    }
+
+    .market-notes .title {
+      font-size: 12px;
+      color: #c084fc;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .market-notes .text {
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+    }
+
+    /* PSA Scale */
+    .psa-scale {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+    }
+
+    .psa-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+      font-size: 13px;
+      border: 1px solid transparent;
+    }
+
+    .psa-item.active {
+      border-color: currentColor;
+    }
+
+    .psa-item .grade {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+
+    .psa-item .name {
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 60px;
+      padding: 32px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      text-align: center;
+      color: rgba(255,255,255,0.3);
+      font-size: 13px;
+    }
+
+    /* Utility */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Grade Colors */
+    .grade-10, .grade-9 { color: #10b981; }
+    .grade-8, .grade-7 { color: #3b82f6; }
+    .grade-6, .grade-5 { color: #f59e0b; }
+    .grade-4, .grade-3 { color: #f97316; }
+    .grade-2, .grade-1 { color: #ef4444; }
+
+    @media (max-width: 640px) {
+      .header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+
+      .header-right {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .user-name {
+        display: none;
+      }
+
+      .overall-grade .score {
+        font-size: 56px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">🎴</div>
+      <h1 class="auth-title">CardGrade Pro</h1>
+      <p class="auth-subtitle">AI-Powered PSA-Style Card Grading</p>
+
+      <div id="auth-error" class="error-message hidden"></div>
+
+      <div id="login-form">
+        <div class="form-group">
+          <input type="email" id="login-email" class="form-input" placeholder="Email Address">
+        </div>
+        <div class="form-group">
+          <input type="password" id="login-password" class="form-input" placeholder="Password">
+        </div>
+        <button id="login-btn" class="btn">Sign In</button>
+        <div class="auth-toggle">
+          Don't have an account? <a id="show-signup">Sign Up</a>
+        </div>
+      </div>
+
+      <div id="signup-form" class="hidden">
+        <div class="form-group">
+          <input type="text" id="signup-name" class="form-input" placeholder="Your Name">
+        </div>
+        <div class="form-group">
+          <input type="email" id="signup-email" class="form-input" placeholder="Email Address">
+        </div>
+        <div class="form-group">
+          <input type="password" id="signup-password" class="form-input" placeholder="Password (min 6 characters)">
+        </div>
+        <button id="signup-btn" class="btn">Create Account</button>
+        <div class="auth-toggle">
+          Already have an account? <a id="show-login">Sign In</a>
+        </div>
+      </div>
+
+      <div class="demo-box">
+        <strong>Demo:</strong> demo@cardgrader.com / demo123
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div id="app-screen" class="hidden">
+    <header class="header">
+      <div class="header-left">
+        <div class="header-logo">🎴</div>
+        <div>
+          <div class="header-title">CardGrade Pro</div>
+          <div class="header-subtitle">Powered by Gemini AI</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="user-name" id="user-name"></span>
+        <button class="btn-logout" id="logout-btn">Sign Out</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Upload Section -->
+      <div class="upload-grid">
+        <div>
+          <div class="upload-label">
+            <span class="dot" style="background: #a855f7;"></span>
+            Card Front
+            <span class="required">*required</span>
+          </div>
+          <div class="upload-zone" id="front-upload">
+            <div class="icon">📷</div>
+            <div class="text">Drop image or click to upload</div>
+            <div class="subtext">JPG, PNG, WebP</div>
+            <input type="file" id="front-input" accept="image/*">
+          </div>
+        </div>
+        <div>
+          <div class="upload-label">
+            <span class="dot" style="background: #ec4899;"></span>
+            Card Back
+            <span class="optional">optional</span>
+          </div>
+          <div class="upload-zone" id="back-upload">
+            <div class="icon">🔄</div>
+            <div class="text">Drop back image (optional)</div>
+            <div class="subtext">Helps assess centering</div>
+            <input type="file" id="back-input" accept="image/*">
+          </div>
+        </div>
+      </div>
+
+      <!-- Grade Button -->
+      <div class="grade-section">
+        <button class="btn btn-grade" id="grade-btn" disabled>
+          <span class="btn-text">✨ Grade This Card</span>
+        </button>
+        <div id="grade-error" class="error-message hidden" style="display: inline-block; margin-top: 16px;"></div>
+      </div>
+
+      <!-- Results -->
+      <div class="results" id="results">
+        <!-- Overall Grade -->
+        <div class="result-card overall-grade" id="overall-card">
+          <div class="label">Overall Grade</div>
+          <div class="score" id="overall-score">-</div>
+          <div class="grade-name" id="overall-name">-</div>
+          <div class="psa-badge" id="psa-badge">-</div>
+        </div>
+
+        <!-- Card Identification -->
+        <div class="result-card" id="card-info">
+          <h3>Card Identified</h3>
+          <div class="info-grid" id="info-grid"></div>
+        </div>
+
+        <!-- Detailed Breakdown -->
+        <div class="result-card">
+          <h3>Detailed Breakdown</h3>
+          <div id="grades-breakdown"></div>
+          <div class="notes-section">
+            <h4>Detailed Notes</h4>
+            <div id="grades-notes"></div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="result-card">
+          <h3>Grading Summary</h3>
+          <p class="summary-text" id="summary-text"></p>
+          <div class="market-notes" id="market-notes">
+            <div class="title">💡 Market Notes</div>
+            <p class="text" id="market-text"></p>
+          </div>
+        </div>
+
+        <!-- PSA Scale -->
+        <div class="result-card">
+          <h3>PSA Grading Scale</h3>
+          <div class="psa-scale" id="psa-scale"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      CardGrade Pro uses AI to estimate card grades. For official grading, submit your cards to PSA, BGS, or CGC.
+    </footer>
+  </div>
+
+  <script>
+    // PSA Grades Reference
+    const PSA_GRADES = {
+      10: 'Gem Mint',
+      9: 'Mint',
+      8: 'NM-MT',
+      7: 'Near Mint',
+      6: 'EX-MT',
+      5: 'Excellent',
+      4: 'VG-EX',
+      3: 'Very Good',
+      2: 'Good',
+      1: 'Poor'
+    };
+
+    // State
+    let token = localStorage.getItem('token');
+    let currentUser = null;
+    let frontFile = null;
+    let backFile = null;
+
+    // Elements
+    const authScreen = document.getElementById('auth-screen');
+    const appScreen = document.getElementById('app-screen');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const authError = document.getElementById('auth-error');
+    const gradeError = document.getElementById('grade-error');
+    const results = document.getElementById('results');
+    const gradeBtn = document.getElementById('grade-btn');
+
+    // Auth functions
+    function showError(el, message) {
+      el.textContent = message;
+      el.classList.remove('hidden');
+    }
+
+    function hideError(el) {
+      el.classList.add('hidden');
+    }
+
+    function showApp() {
+      authScreen.classList.add('hidden');
+      appScreen.classList.remove('hidden');
+      document.getElementById('user-name').textContent = currentUser?.name || '';
+    }
+
+    function showAuth() {
+      authScreen.classList.remove('hidden');
+      appScreen.classList.add('hidden');
+      token = null;
+      currentUser = null;
+      localStorage.removeItem('token');
+    }
+
+    async function checkAuth() {
+      if (!token) {
+        showAuth();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          currentUser = await res.json();
+          showApp();
+        } else {
+          showAuth();
+        }
+      } catch (e) {
+        showAuth();
+      }
+    }
+
+    async function login() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      hideError(authError);
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          token = data.token;
+          currentUser = data.user;
+          localStorage.setItem('token', token);
+          showApp();
+        } else {
+          showError(authError, data.error || 'Login failed');
+        }
+      } catch (e) {
+        showError(authError, 'Connection error. Please try again.');
+      }
+    }
+
+    async function signup() {
+      const name = document.getElementById('signup-name').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+
+      hideError(authError);
+
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          token = data.token;
+          currentUser = data.user;
+          localStorage.setItem('token', token);
+          showApp();
+        } else {
+          showError(authError, data.error || 'Signup failed');
+        }
+      } catch (e) {
+        showError(authError, 'Connection error. Please try again.');
+      }
+    }
+
+    // Upload functions
+    function setupUpload(zoneId, inputId, side) {
+      const zone = document.getElementById(zoneId);
+      const input = document.getElementById(inputId);
+
+      zone.addEventListener('click', () => {
+        if (!zone.classList.contains('has-image')) {
+          input.click();
+        }
+      });
+
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          handleFile(file, zone, side);
+        }
+      });
+
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          handleFile(file, zone, side);
+        }
+      });
+    }
+
+    function handleFile(file, zone, side) {
+      if (side === 'front') {
+        frontFile = file;
+      } else {
+        backFile = file;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        zone.innerHTML = `
+          <button class="clear-btn" onclick="clearImage('${side}', event)">×</button>
+          <img src="${e.target.result}" alt="Card ${side}">
+        `;
+        zone.classList.add('has-image');
+        updateGradeButton();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearImage(side, event) {
+      event.stopPropagation();
+
+      if (side === 'front') {
+        frontFile = null;
+        const zone = document.getElementById('front-upload');
+        zone.innerHTML = `
+          <div class="icon">📷</div>
+          <div class="text">Drop image or click to upload</div>
+          <div class="subtext">JPG, PNG, WebP</div>
+          <input type="file" id="front-input" accept="image/*">
+        `;
+        zone.classList.remove('has-image');
+        setupUpload('front-upload', 'front-input', 'front');
+      } else {
+        backFile = null;
+        const zone = document.getElementById('back-upload');
+        zone.innerHTML = `
+          <div class="icon">🔄</div>
+          <div class="text">Drop back image (optional)</div>
+          <div class="subtext">Helps assess centering</div>
+          <input type="file" id="back-input" accept="image/*">
+        `;
+        zone.classList.remove('has-image');
+        setupUpload('back-upload', 'back-input', 'back');
+      }
+
+      updateGradeButton();
+      results.classList.remove('visible');
+    }
+
+    function updateGradeButton() {
+      gradeBtn.disabled = !frontFile;
+    }
+
+    // Grading
+    async function gradeCard() {
+      if (!frontFile) return;
+
+      hideError(gradeError);
+      gradeBtn.disabled = true;
+      gradeBtn.classList.add('loading');
+      gradeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner">⚡</span> Analyzing Card...';
+
+      const formData = new FormData();
+      formData.append('frontImage', frontFile);
+      if (backFile) {
+        formData.append('backImage', backFile);
+      }
+
+      try {
+        const res = await fetch('/api/grade', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          displayResults(data);
+        } else {
+          showError(gradeError, data.error || 'Grading failed');
+        }
+      } catch (e) {
+        showError(gradeError, 'Connection error. Please try again.');
+      } finally {
+        gradeBtn.disabled = false;
+        gradeBtn.classList.remove('loading');
+        gradeBtn.querySelector('.btn-text').textContent = '✨ Grade This Card';
+        updateGradeButton();
+      }
+    }
+
+    function getGradeColor(grade) {
+      if (grade >= 9) return '#10b981';
+      if (grade >= 7) return '#3b82f6';
+      if (grade >= 5) return '#f59e0b';
+      if (grade >= 3) return '#f97316';
+      return '#ef4444';
+    }
+
+    function getGradeClass(grade) {
+      const rounded = Math.round(grade);
+      if (rounded >= 9) return 'grade-10';
+      if (rounded >= 7) return 'grade-8';
+      if (rounded >= 5) return 'grade-6';
+      if (rounded >= 3) return 'grade-4';
+      return 'grade-2';
+    }
+
+    function displayResults(data) {
+      const color = getGradeColor(data.overallGrade);
+      const gradeClass = getGradeClass(data.overallGrade);
+
+      // Overall grade
+      const overallCard = document.getElementById('overall-card');
+      overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
+      overallCard.style.borderColor = color;
+
+      document.getElementById('overall-score').textContent = data.overallGrade;
+      document.getElementById('overall-score').style.color = color;
+      document.getElementById('overall-name').textContent = PSA_GRADES[Math.round(data.overallGrade)] || '';
+      document.getElementById('overall-name').style.color = color;
+      document.getElementById('psa-badge').textContent = data.psaEquivalent;
+
+      // Card info
+      const infoGrid = document.getElementById('info-grid');
+      const cardInfo = data.cardIdentification;
+      infoGrid.innerHTML = `
+        <div class="info-item">
+          <div class="label">Category</div>
+          <div class="value">${cardInfo.sport || 'Unknown'}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Player/Character</div>
+          <div class="value">${cardInfo.playerOrCharacter || 'Unknown'}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Set</div>
+          <div class="value">${cardInfo.cardSet || 'Unknown'}</div>
+        </div>
+        ${cardInfo.year ? `
+          <div class="info-item">
+            <div class="label">Year</div>
+            <div class="value">${cardInfo.year}</div>
+          </div>
+        ` : ''}
+      `;
+
+      // Grades breakdown
+      const breakdown = document.getElementById('grades-breakdown');
+      const notes = document.getElementById('grades-notes');
+      breakdown.innerHTML = '';
+      notes.innerHTML = '';
+
+      for (const [key, value] of Object.entries(data.grades)) {
+        const itemColor = getGradeColor(value.score);
+        const displayName = key.replace(/([A-Z])/g, ' $1').trim();
+
+        breakdown.innerHTML += `
+          <div class="grade-item">
+            <div class="name">
+              ${displayName}
+              ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
+            </div>
+            <div class="bar">
+              <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+            </div>
+            <div class="score" style="color: ${itemColor};">${value.score}</div>
+          </div>
+        `;
+
+        notes.innerHTML += `
+          <div class="note-item">
+            <span class="category" style="color: ${itemColor};">${displayName}:</span>
+            <span class="text">${value.notes}</span>
+          </div>
+        `;
+      }
+
+      // Summary
+      document.getElementById('summary-text').textContent = data.summary;
+
+      // Market notes
+      const marketNotes = document.getElementById('market-notes');
+      if (data.marketNotes) {
+        document.getElementById('market-text').textContent = data.marketNotes;
+        marketNotes.classList.remove('hidden');
+      } else {
+        marketNotes.classList.add('hidden');
+      }
+
+      // PSA Scale
+      const psaScale = document.getElementById('psa-scale');
+      psaScale.innerHTML = '';
+      for (let i = 10; i >= 1; i--) {
+        const itemColor = getGradeColor(i);
+        const isActive = Math.round(data.overallGrade) === i;
+        psaScale.innerHTML += `
+          <div class="psa-item ${isActive ? 'active' : ''}" style="${isActive ? `background: ${itemColor}30; border-color: ${itemColor};` : ''}">
+            <span class="grade" style="color: ${itemColor};">${i}</span>
+            <span class="name">${PSA_GRADES[i]}</span>
+          </div>
+        `;
+      }
+
+      results.classList.add('visible');
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Event listeners
+    document.getElementById('login-btn').addEventListener('click', login);
+    document.getElementById('signup-btn').addEventListener('click', signup);
+    document.getElementById('logout-btn').addEventListener('click', showAuth);
+    document.getElementById('grade-btn').addEventListener('click', gradeCard);
+
+    document.getElementById('show-signup').addEventListener('click', () => {
+      loginForm.classList.add('hidden');
+      signupForm.classList.remove('hidden');
+      hideError(authError);
+    });
+
+    document.getElementById('show-login').addEventListener('click', () => {
+      signupForm.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+      hideError(authError);
+    });
+
+    // Enter key for forms
+    document.getElementById('login-password').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') login();
+    });
+
+    document.getElementById('signup-password').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') signup();
+    });
+
+    // Make clearImage global
+    window.clearImage = clearImage;
+
+    // Initialize
+    setupUpload('front-upload', 'front-input', 'front');
+    setupUpload('back-upload', 'back-input', 'back');
+    checkAuth();
+  </script>
+</body>
+</html>
