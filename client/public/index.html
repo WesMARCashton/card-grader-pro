@@ -27,7 +27,6 @@
       padding: 24px;
     }
 
-    /* Auth Styles */
     .auth-container {
       min-height: 100vh;
       display: flex;
@@ -193,7 +192,6 @@
       margin-bottom: 16px;
     }
 
-    /* Header */
     .header {
       padding: 20px 24px;
       display: flex;
@@ -256,12 +254,6 @@
       background: rgba(255,255,255,0.1);
     }
 
-    .btn-nav.active {
-      background: rgba(168,85,247,0.2);
-      border-color: rgba(168,85,247,0.5);
-    }
-
-    /* Navigation Tabs */
     .nav-tabs {
       display: flex;
       gap: 8px;
@@ -293,7 +285,6 @@
       background: rgba(168,85,247,0.2);
     }
 
-    /* Upload Section */
     .upload-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -375,10 +366,6 @@
       border-radius: 12px;
     }
 
-    .upload-zone input {
-      display: none;
-    }
-
     .clear-btn {
       position: absolute;
       top: 8px;
@@ -402,7 +389,6 @@
       background: rgba(239,68,68,0.8);
     }
 
-    /* Grade Button */
     .grade-section {
       text-align: center;
       margin-bottom: 40px;
@@ -416,10 +402,6 @@
       font-size: 18px;
     }
 
-    .btn-grade.loading {
-      pointer-events: none;
-    }
-
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -430,7 +412,6 @@
       display: inline-block;
     }
 
-    /* Action Buttons after grading */
     .action-buttons {
       display: flex;
       gap: 16px;
@@ -444,7 +425,6 @@
       padding: 16px 32px;
     }
 
-    /* Results */
     .results {
       display: none;
     }
@@ -468,7 +448,6 @@
       margin-bottom: 16px;
     }
 
-    /* Overall Grade */
     .overall-grade {
       text-align: center;
       padding: 32px;
@@ -505,7 +484,6 @@
       font-weight: 500;
     }
 
-    /* Grade Adjuster */
     .grade-adjuster {
       margin-top: 24px;
       padding: 20px;
@@ -584,7 +562,6 @@
       letter-spacing: 0.5px;
     }
 
-    /* Card Info Grid */
     .info-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -595,13 +572,14 @@
       font-size: 11px;
       color: rgba(255,255,255,0.4);
       margin-bottom: 4px;
+      text-transform: uppercase;
     }
 
     .info-item .value {
       font-weight: 500;
+      text-transform: uppercase;
     }
 
-    /* Grade Breakdown */
     .grade-item {
       display: flex;
       align-items: center;
@@ -617,6 +595,7 @@
       width: 100px;
       font-weight: 500;
       font-size: 14px;
+      text-transform: uppercase;
     }
 
     .grade-item .ratio {
@@ -645,10 +624,8 @@
       text-align: right;
       font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
-      transition: color 0.3s;
     }
 
-    /* Notes */
     .notes-section {
       margin-top: 24px;
       padding-top: 20px;
@@ -660,6 +637,7 @@
       font-weight: 600;
       color: rgba(255,255,255,0.4);
       margin-bottom: 16px;
+      text-transform: uppercase;
     }
 
     .note-item {
@@ -669,7 +647,7 @@
 
     .note-item .category {
       font-weight: 600;
-      text-transform: capitalize;
+      text-transform: uppercase;
     }
 
     .note-item .text {
@@ -677,7 +655,6 @@
       margin-left: 8px;
     }
 
-    /* Summary */
     .summary-text {
       color: rgba(255,255,255,0.8);
       line-height: 1.7;
@@ -704,7 +681,6 @@
       font-size: 14px;
     }
 
-    /* PSA Scale */
     .psa-scale {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -734,7 +710,6 @@
       color: rgba(255,255,255,0.7);
     }
 
-    /* Collection Grid */
     .collection-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -772,6 +747,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-transform: uppercase;
     }
 
     .collection-card-set {
@@ -781,6 +757,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      text-transform: uppercase;
     }
 
     .collection-card-grade {
@@ -854,7 +831,6 @@
       color: white;
     }
 
-    /* Modal */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -897,6 +873,7 @@
 
     .modal-header h2 {
       font-size: 18px;
+      text-transform: uppercase;
     }
 
     .modal-close {
@@ -912,7 +889,6 @@
       padding: 24px;
     }
 
-    /* Footer */
     .footer {
       margin-top: 60px;
       padding: 32px;
@@ -922,17 +898,9 @@
       font-size: 13px;
     }
 
-    /* Utility */
     .hidden {
       display: none !important;
     }
-
-    /* Grade Colors */
-    .grade-10, .grade-9 { color: #10b981; }
-    .grade-8, .grade-7 { color: #3b82f6; }
-    .grade-6, .grade-5 { color: #f59e0b; }
-    .grade-4, .grade-3 { color: #f97316; }
-    .grade-2, .grade-1 { color: #ef4444; }
 
     @media (max-width: 640px) {
       .header {
@@ -970,7 +938,6 @@
   </style>
 </head>
 <body>
-  <!-- Auth Screen -->
   <div id="auth-screen" class="auth-container">
     <div class="auth-card">
       <div class="auth-logo">🎴</div>
@@ -1014,7 +981,6 @@
     </div>
   </div>
 
-  <!-- Main App -->
   <div id="app-screen" class="hidden">
     <header class="header">
       <div class="header-left">
@@ -1031,15 +997,12 @@
     </header>
 
     <div class="container">
-      <!-- Navigation Tabs -->
       <div class="nav-tabs">
         <button class="nav-tab active" id="tab-grade">📷 Grade Card</button>
         <button class="nav-tab" id="tab-collection">📚 My Collection <span id="collection-count"></span></button>
       </div>
 
-      <!-- Grade Card View -->
       <div id="grade-view">
-        <!-- Upload Section -->
         <div class="upload-grid" id="upload-grid">
           <div>
             <div class="upload-label">
@@ -1069,7 +1032,6 @@
           </div>
         </div>
 
-        <!-- Grade Button -->
         <div class="grade-section">
           <button class="btn btn-grade" id="grade-btn" disabled>
             <span class="btn-text">✨ Grade This Card</span>
@@ -1077,9 +1039,7 @@
           <div id="grade-error" class="error-message hidden" style="display: inline-block; margin-top: 16px;"></div>
         </div>
 
-        <!-- Results -->
         <div class="results" id="results">
-          <!-- Action Buttons -->
           <div class="action-buttons">
             <button class="btn btn-success" id="save-btn">💾 Save to Collection</button>
             <button class="btn btn-secondary" id="grade-another-btn">📷 Grade Another Card</button>
@@ -1087,14 +1047,12 @@
 
           <div id="save-message" class="success-message hidden">✓ Card saved to your collection!</div>
 
-          <!-- Overall Grade -->
           <div class="result-card overall-grade" id="overall-card">
             <div class="label">Overall Grade <span id="manual-indicator" class="manual-badge hidden">Manually Adjusted</span></div>
             <div class="score" id="overall-score">-</div>
             <div class="grade-name" id="overall-name">-</div>
             <div class="psa-badge" id="psa-badge">-</div>
             
-            <!-- Grade Adjuster -->
             <div class="grade-adjuster">
               <div class="grade-adjuster-label">
                 ✏️ Adjust Grade Manually
@@ -1104,19 +1062,17 @@
                 <div class="grade-adjuster-value" id="adjuster-value">-</div>
                 <button class="grade-adjuster-btn" id="grade-up" onclick="adjustGrade(0.5)">+</button>
               </div>
-              <div class="grade-adjuster-hint">Category scores will adjust proportionally</div>
+              <div class="grade-adjuster-hint">Category scores and notes will adjust to match</div>
             </div>
           </div>
 
-          <!-- Card Identification -->
           <div class="result-card" id="card-info">
-            <h3>Card Identified</h3>
+            <h3>CARD IDENTIFIED</h3>
             <div class="info-grid" id="info-grid"></div>
           </div>
 
-          <!-- Detailed Breakdown -->
           <div class="result-card">
-            <h3>Detailed Breakdown</h3>
+            <h3>DETAILED BREAKDOWN</h3>
             <div id="grades-breakdown"></div>
             <div class="notes-section">
               <h4>Detailed Notes</h4>
@@ -1124,9 +1080,8 @@
             </div>
           </div>
 
-          <!-- Summary -->
           <div class="result-card">
-            <h3>Grading Summary</h3>
+            <h3>GRADING SUMMARY</h3>
             <p class="summary-text" id="summary-text"></p>
             <div class="market-notes" id="market-notes">
               <div class="title">💡 Market Notes</div>
@@ -1134,15 +1089,13 @@
             </div>
           </div>
 
-          <!-- PSA Scale -->
           <div class="result-card">
-            <h3>PSA Grading Scale</h3>
+            <h3>PSA GRADING SCALE</h3>
             <div class="psa-scale" id="psa-scale"></div>
           </div>
         </div>
       </div>
 
-      <!-- Collection View -->
       <div id="collection-view" class="hidden">
         <div id="collection-grid" class="collection-grid"></div>
         <div id="collection-empty" class="empty-state hidden">
@@ -1158,7 +1111,6 @@
     </footer>
   </div>
 
-  <!-- Card Detail Modal -->
   <div class="modal-overlay" id="card-modal">
     <div class="modal">
       <div class="modal-header">
@@ -1170,31 +1122,92 @@
   </div>
 
   <script>
-    // PSA Grades Reference
     const PSA_GRADES = {
-      10: 'Gem Mint',
-      9: 'Mint',
+      10: 'GEM MINT',
+      9: 'MINT',
       8: 'NM-MT',
-      7: 'Near Mint',
+      7: 'NEAR MINT',
       6: 'EX-MT',
-      5: 'Excellent',
+      5: 'EXCELLENT',
       4: 'VG-EX',
-      3: 'Very Good',
-      2: 'Good',
-      1: 'Poor'
+      3: 'VERY GOOD',
+      2: 'GOOD',
+      1: 'POOR'
     };
 
-    // State
+    // Grade description templates for generating appropriate notes
+    const GRADE_DESCRIPTIONS = {
+      centering: {
+        10: 'Perfect centering with 50/50 to 55/45 ratio on front and back.',
+        9: 'Excellent centering with 55/45 to 60/40 ratio. Virtually perfect alignment.',
+        8: 'Very good centering with 60/40 to 65/35 ratio. Slight off-center but not distracting.',
+        7: 'Good centering with 65/35 to 70/30 ratio. Noticeable but acceptable off-center.',
+        6: 'Moderate centering with 70/30 to 75/25 ratio. Visibly off-center.',
+        5: 'Fair centering with noticeable shift. Off-center is apparent.',
+        4: 'Below average centering. Significantly off-center.',
+        3: 'Poor centering. Heavily misaligned.',
+        2: 'Very poor centering. Extreme misalignment.',
+        1: 'Severely off-center. Major centering defect.'
+      },
+      corners: {
+        10: 'Four perfectly sharp corners with no wear visible under magnification.',
+        9: 'Four sharp corners with minimal wear. Virtually perfect to the naked eye.',
+        8: 'Corners are sharp with very minor wear. Slight imperfection on one corner.',
+        7: 'Corners show minor wear. Light fuzzing visible on inspection.',
+        6: 'Corners display moderate wear. Slight rounding becoming apparent.',
+        5: 'Noticeable corner wear with fuzzing. Corners showing age.',
+        4: 'Definite corner wear with rounding visible. Multiple corners affected.',
+        3: 'Heavy corner wear. Corners are noticeably rounded.',
+        2: 'Severe corner wear. Corners heavily rounded or damaged.',
+        1: 'Extreme corner damage. Corners may be creased or missing.'
+      },
+      edges: {
+        10: 'Pristine edges with no wear, chipping, or imperfections visible.',
+        9: 'Near perfect edges with virtually no wear. Crisp and clean.',
+        8: 'Very minor edge wear. Edges remain sharp with slight imperfections.',
+        7: 'Minor edge wear visible. Some light chipping or fuzzing.',
+        6: 'Moderate edge wear. Chipping and wear becoming noticeable.',
+        5: 'Noticeable edge wear throughout. Some roughness present.',
+        4: 'Definite edge wear with chipping. Edges showing significant use.',
+        3: 'Heavy edge wear. Rough edges with multiple chips.',
+        2: 'Severe edge damage. Major chipping and wear throughout.',
+        1: 'Extreme edge damage. Edges may be torn or heavily damaged.'
+      },
+      surface: {
+        10: 'Flawless surface with full original gloss. No scratches, marks, or print defects.',
+        9: 'Excellent surface with original gloss intact. One minor flaw allowed.',
+        8: 'Very clean surface with good gloss. Minor surface wear acceptable.',
+        7: 'Clean surface with minor wear. Slight loss of gloss in areas.',
+        6: 'Surface shows light wear. Some scratches or marks visible.',
+        5: 'Moderate surface wear. Scratches and loss of gloss apparent.',
+        4: 'Noticeable surface wear. Multiple scratches or marks present.',
+        3: 'Heavy surface wear. Significant scratching and gloss loss.',
+        2: 'Severe surface damage. Heavy scratches, scuffing, or staining.',
+        1: 'Extreme surface damage. Major defects affecting appearance.'
+      },
+      printQuality: {
+        10: 'Perfect print quality with sharp focus, rich colors, and no defects.',
+        9: 'Excellent print quality. Sharp and clear with vibrant colors.',
+        8: 'Very good print quality. Minor print variation acceptable.',
+        7: 'Good print quality with slight softness or minor color variation.',
+        6: 'Acceptable print quality. Some focus issues or color inconsistency.',
+        5: 'Moderate print quality issues. Noticeable softness or color problems.',
+        4: 'Below average print quality. Visible defects in printing.',
+        3: 'Poor print quality. Significant focus or color issues.',
+        2: 'Very poor print quality. Major printing defects.',
+        1: 'Severely defective print quality. Unacceptable printing issues.'
+      }
+    };
+
     let token = localStorage.getItem('token');
     let currentUser = null;
     let frontFile = null;
     let backFile = null;
     let currentGradingResult = null;
-    let originalGradingResult = null; // Store original AI result
+    let originalGradingResult = null;
     let collection = [];
     let isManuallyAdjusted = false;
 
-    // Elements
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app-screen');
     const loginForm = document.getElementById('login-form');
@@ -1213,27 +1226,24 @@
     const frontInput = document.getElementById('front-input');
     const backInput = document.getElementById('back-input');
 
-    // Collection storage key based on user email
+    function toUpperCase(str) {
+      return str ? str.toUpperCase() : '';
+    }
+
     function getCollectionKey() {
       return `cardgrader_collection_${currentUser?.email || 'guest'}`;
     }
 
-    // Load collection from localStorage
     function loadCollectionFromStorage() {
       try {
         const saved = localStorage.getItem(getCollectionKey());
-        if (saved) {
-          collection = JSON.parse(saved);
-        } else {
-          collection = [];
-        }
+        collection = saved ? JSON.parse(saved) : [];
       } catch (e) {
         collection = [];
       }
       updateCollectionCount();
     }
 
-    // Save collection to localStorage
     function saveCollectionToStorage() {
       try {
         localStorage.setItem(getCollectionKey(), JSON.stringify(collection));
@@ -1242,7 +1252,6 @@
       }
     }
 
-    // Auth functions
     function showError(el, message) {
       el.textContent = message;
       el.classList.remove('hidden');
@@ -1272,12 +1281,10 @@
         showAuth();
         return;
       }
-
       try {
         const res = await fetch('/api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-
         if (res.ok) {
           currentUser = await res.json();
           showApp();
@@ -1292,18 +1299,14 @@
     async function login() {
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
-
       hideError(authError);
-
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
-
         const data = await res.json();
-
         if (res.ok) {
           token = data.token;
           currentUser = data.user;
@@ -1321,18 +1324,14 @@
       const name = document.getElementById('signup-name').value;
       const email = document.getElementById('signup-email').value;
       const password = document.getElementById('signup-password').value;
-
       hideError(authError);
-
       try {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password })
         });
-
         const data = await res.json();
-
         if (res.ok) {
           token = data.token;
           currentUser = data.user;
@@ -1346,7 +1345,6 @@
       }
     }
 
-    // Tab switching
     function showGradeView() {
       gradeView.classList.remove('hidden');
       collectionView.classList.add('hidden');
@@ -1362,7 +1360,6 @@
       renderCollection();
     }
 
-    // Collection functions
     function updateCollectionCount() {
       collectionCount.textContent = collection.length > 0 ? `(${collection.length})` : '';
     }
@@ -1382,10 +1379,10 @@
 
       grid.innerHTML = collection.map(card => `
         <div class="collection-card" data-id="${card.id}">
-          <img src="data:image/jpeg;base64,${card.frontImage}" alt="${card.cardIdentification?.playerOrCharacter || 'Card'}">
+          <img src="data:image/jpeg;base64,${card.frontImage}" alt="${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'CARD'}">
           <div class="collection-card-info">
-            <div class="collection-card-name">${card.cardIdentification?.playerOrCharacter || 'Unknown'}${card.manuallyAdjusted ? ' ✏️' : ''}</div>
-            <div class="collection-card-set">${card.cardIdentification?.cardSet || ''} ${card.cardIdentification?.year || ''}</div>
+            <div class="collection-card-name">${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'UNKNOWN'}${card.manuallyAdjusted ? ' ✏️' : ''}</div>
+            <div class="collection-card-set">${toUpperCase(card.cardIdentification?.cardSet) || ''} ${card.cardIdentification?.year || ''}</div>
             <div class="collection-card-grade">
               <span class="score" style="color: ${getGradeColor(card.overallGrade)}">${card.overallGrade}</span>
               <span class="psa">${card.psaEquivalent}</span>
@@ -1405,7 +1402,6 @@
       const saveBtn = document.getElementById('save-btn');
       const saveMessage = document.getElementById('save-message');
 
-      // Add card with unique ID and timestamp
       const savedCard = {
         id: Date.now(),
         savedAt: new Date().toISOString(),
@@ -1427,7 +1423,6 @@
     function deleteCard(id, event) {
       event.stopPropagation();
       if (!confirm('Are you sure you want to delete this card from your collection?')) return;
-
       collection = collection.filter(c => c.id !== id);
       saveCollectionToStorage();
       updateCollectionCount();
@@ -1442,7 +1437,7 @@
       const modalTitle = document.getElementById('modal-title');
       const modalBody = document.getElementById('modal-body');
 
-      modalTitle.textContent = card.cardIdentification?.playerOrCharacter || 'Card Details';
+      modalTitle.textContent = toUpperCase(card.cardIdentification?.playerOrCharacter) || 'CARD DETAILS';
 
       const color = getGradeColor(card.overallGrade);
 
@@ -1450,12 +1445,12 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
           <div>
             <img src="data:image/jpeg;base64,${card.frontImage}" alt="Front" style="width: 100%; border-radius: 12px;">
-            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">Front</p>
+            <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">FRONT</p>
           </div>
           ${card.backImage ? `
             <div>
               <img src="data:image/jpeg;base64,${card.backImage}" alt="Back" style="width: 100%; border-radius: 12px;">
-              <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">Back</p>
+              <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">BACK</p>
             </div>
           ` : '<div></div>'}
         </div>
@@ -1464,26 +1459,30 @@
           <div style="font-size: 48px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: ${color};">${card.overallGrade}</div>
           <div style="font-size: 18px; color: ${color}; margin-top: 4px;">${PSA_GRADES[Math.round(card.overallGrade)] || ''}</div>
           <div style="margin-top: 12px; background: rgba(255,255,255,0.1); display: inline-block; padding: 6px 16px; border-radius: 100px; font-size: 13px;">${card.psaEquivalent}</div>
-          ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ Manually Adjusted</div>' : ''}
+          ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ MANUALLY ADJUSTED</div>' : ''}
         </div>
 
         <div style="margin-bottom: 24px;">
           <h4 style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">CARD INFO</h4>
-          <p><strong>Category:</strong> ${card.cardIdentification?.sport || 'Unknown'}</p>
-          <p><strong>Player/Character:</strong> ${card.cardIdentification?.playerOrCharacter || 'Unknown'}</p>
-          <p><strong>Set:</strong> ${card.cardIdentification?.cardSet || 'Unknown'}</p>
-          ${card.cardIdentification?.year ? `<p><strong>Year:</strong> ${card.cardIdentification.year}</p>` : ''}
+          <p><strong>CATEGORY:</strong> ${toUpperCase(card.cardIdentification?.sport) || 'UNKNOWN'}</p>
+          <p><strong>PLAYER/CHARACTER:</strong> ${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'UNKNOWN'}</p>
+          <p><strong>SET:</strong> ${toUpperCase(card.cardIdentification?.cardSet) || 'UNKNOWN'}</p>
+          ${card.cardIdentification?.year ? `<p><strong>YEAR:</strong> ${card.cardIdentification.year}</p>` : ''}
+          ${card.cardIdentification?.cardNumber ? `<p><strong>CARD #:</strong> ${toUpperCase(card.cardIdentification.cardNumber)}</p>` : ''}
         </div>
 
         <div style="margin-bottom: 24px;">
-          <h4 style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">GRADES</h4>
+          <h4 style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 12px;">GRADES & NOTES</h4>
           ${Object.entries(card.grades).map(([key, value]) => `
-            <div style="display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-              <span style="width: 100px; text-transform: capitalize;">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
-              <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 0 12px;">
-                <div style="height: 100%; width: ${(value.score/10)*100}%; background: ${getGradeColor(value.score)}; border-radius: 3px;"></div>
+            <div style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+              <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <span style="width: 100px; text-transform: uppercase; font-weight: 600;">${key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 0 12px;">
+                  <div style="height: 100%; width: ${(value.score/10)*100}%; background: ${getGradeColor(value.score)}; border-radius: 3px;"></div>
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: ${getGradeColor(value.score)};">${value.score}</span>
               </div>
-              <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: ${getGradeColor(value.score)};">${value.score}</span>
+              <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-left: 4px;">${value.notes}</p>
             </div>
           `).join('')}
         </div>
@@ -1497,42 +1496,43 @@
       modal.classList.add('visible');
     }
 
-    // Grade adjustment functions
+    // Generate appropriate notes based on grade
+    function generateNotesForGrade(category, score) {
+      const roundedScore = Math.round(score);
+      const clampedScore = Math.max(1, Math.min(10, roundedScore));
+      return GRADE_DESCRIPTIONS[category]?.[clampedScore] || `Grade ${score} condition.`;
+    }
+
     function adjustGrade(delta) {
       if (!currentGradingResult || !originalGradingResult) return;
 
       const newGrade = Math.max(1, Math.min(10, currentGradingResult.overallGrade + delta));
       
-      // Don't allow same grade
       if (newGrade === currentGradingResult.overallGrade) return;
 
-      // Calculate the ratio for proportional adjustment
       const ratio = newGrade / originalGradingResult.overallGrade;
 
-      // Update overall grade
       currentGradingResult.overallGrade = newGrade;
       currentGradingResult.psaEquivalent = `PSA ${Math.round(newGrade)}`;
 
-      // Proportionally adjust all category scores
+      // Proportionally adjust all category scores and update notes
       for (const key in currentGradingResult.grades) {
         const originalScore = originalGradingResult.grades[key].score;
         let newScore = originalScore * ratio;
-        // Clamp between 1 and 10, round to nearest 0.5
         newScore = Math.max(1, Math.min(10, Math.round(newScore * 2) / 2));
         currentGradingResult.grades[key].score = newScore;
+        // Generate new notes appropriate for the new grade
+        currentGradingResult.grades[key].notes = generateNotesForGrade(key, newScore);
       }
 
-      // Mark as manually adjusted
       isManuallyAdjusted = newGrade !== originalGradingResult.overallGrade;
 
-      // Update the display
       updateGradeDisplay();
     }
 
     function updateGradeDisplay() {
       const color = getGradeColor(currentGradingResult.overallGrade);
 
-      // Update overall grade card
       const overallCard = document.getElementById('overall-card');
       overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
       overallCard.style.borderColor = color;
@@ -1543,15 +1543,12 @@
       document.getElementById('overall-name').style.color = color;
       document.getElementById('psa-badge').textContent = currentGradingResult.psaEquivalent;
 
-      // Update adjuster value
       document.getElementById('adjuster-value').textContent = currentGradingResult.overallGrade;
       document.getElementById('adjuster-value').style.color = color;
 
-      // Update button states
       document.getElementById('grade-down').disabled = currentGradingResult.overallGrade <= 1;
       document.getElementById('grade-up').disabled = currentGradingResult.overallGrade >= 10;
 
-      // Show/hide manual indicator
       const manualIndicator = document.getElementById('manual-indicator');
       if (isManuallyAdjusted) {
         manualIndicator.classList.remove('hidden');
@@ -1561,11 +1558,13 @@
 
       // Update grades breakdown
       const breakdown = document.getElementById('grades-breakdown');
+      const notes = document.getElementById('grades-notes');
       breakdown.innerHTML = '';
+      notes.innerHTML = '';
 
       for (const [key, value] of Object.entries(currentGradingResult.grades)) {
         const itemColor = getGradeColor(value.score);
-        const displayName = key.replace(/([A-Z])/g, ' $1').trim();
+        const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
 
         breakdown.innerHTML += `
           <div class="grade-item">
@@ -1579,9 +1578,16 @@
             <div class="score" style="color: ${itemColor};">${value.score}</div>
           </div>
         `;
+
+        notes.innerHTML += `
+          <div class="note-item">
+            <span class="category" style="color: ${itemColor};">${displayName}:</span>
+            <span class="text">${value.notes}</span>
+          </div>
+        `;
       }
 
-      // Update PSA Scale highlighting
+      // Update PSA Scale
       const psaScale = document.getElementById('psa-scale');
       psaScale.innerHTML = '';
       for (let i = 10; i >= 1; i--) {
@@ -1596,66 +1602,43 @@
       }
     }
 
-    // Upload functions - Fixed version
     function initUploadZones() {
-      // Front upload zone click
       frontUpload.onclick = function(e) {
         if (!frontUpload.classList.contains('has-image')) {
           frontInput.click();
         }
       };
 
-      // Back upload zone click
       backUpload.onclick = function(e) {
         if (!backUpload.classList.contains('has-image')) {
           backInput.click();
         }
       };
 
-      // Front input change
       frontInput.onchange = function(e) {
         const file = e.target.files[0];
-        if (file) {
-          handleFile(file, 'front');
-        }
+        if (file) handleFile(file, 'front');
       };
 
-      // Back input change
       backInput.onchange = function(e) {
         const file = e.target.files[0];
-        if (file) {
-          handleFile(file, 'back');
-        }
+        if (file) handleFile(file, 'back');
       };
 
-      // Drag and drop for front
-      frontUpload.ondragover = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-
+      frontUpload.ondragover = function(e) { e.preventDefault(); e.stopPropagation(); };
       frontUpload.ondrop = function(e) {
         e.preventDefault();
         e.stopPropagation();
         const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-          handleFile(file, 'front');
-        }
+        if (file && file.type.startsWith('image/')) handleFile(file, 'front');
       };
 
-      // Drag and drop for back
-      backUpload.ondragover = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-      };
-
+      backUpload.ondragover = function(e) { e.preventDefault(); e.stopPropagation(); };
       backUpload.ondrop = function(e) {
         e.preventDefault();
         e.stopPropagation();
         const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-          handleFile(file, 'back');
-        }
+        if (file && file.type.startsWith('image/')) handleFile(file, 'back');
       };
     }
 
@@ -1712,13 +1695,11 @@
     }
 
     function resetGrading() {
-      // Reset files
       frontFile = null;
       backFile = null;
       frontInput.value = '';
       backInput.value = '';
       
-      // Reset front upload zone
       frontUpload.innerHTML = `
         <div class="icon">📷</div>
         <div class="text">Drop image or click to upload</div>
@@ -1726,7 +1707,6 @@
       `;
       frontUpload.classList.remove('has-image');
       
-      // Reset back upload zone
       backUpload.innerHTML = `
         <div class="icon">🔄</div>
         <div class="text">Drop back image (optional)</div>
@@ -1734,7 +1714,6 @@
       `;
       backUpload.classList.remove('has-image');
 
-      // Reset state
       currentGradingResult = null;
       originalGradingResult = null;
       isManuallyAdjusted = false;
@@ -1743,28 +1722,22 @@
       document.getElementById('save-message').classList.add('hidden');
       document.getElementById('manual-indicator').classList.add('hidden');
 
-      // Reset save button
       const saveBtn = document.getElementById('save-btn');
       saveBtn.disabled = false;
       saveBtn.textContent = '💾 Save to Collection';
       saveBtn.classList.add('btn-success');
       saveBtn.classList.remove('btn-secondary');
 
-      // Update grade button
       updateGradeButton();
-
-      // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Grading
     async function gradeCard() {
       if (!frontFile) return;
 
       hideError(gradeError);
       document.getElementById('save-message').classList.add('hidden');
       gradeBtn.disabled = true;
-      gradeBtn.classList.add('loading');
       gradeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner">⚡</span> Analyzing Card...';
 
       const formData = new FormData();
@@ -1783,14 +1756,12 @@
         const data = await res.json();
 
         if (res.ok) {
-          // Store original result for ratio calculations
           originalGradingResult = JSON.parse(JSON.stringify(data));
           currentGradingResult = data;
           isManuallyAdjusted = false;
           
           displayResults(data);
 
-          // Reset save button for new card
           const saveBtn = document.getElementById('save-btn');
           saveBtn.disabled = false;
           saveBtn.textContent = '💾 Save to Collection';
@@ -1803,7 +1774,6 @@
         showError(gradeError, 'Connection error. Please try again.');
       } finally {
         gradeBtn.disabled = false;
-        gradeBtn.classList.remove('loading');
         gradeBtn.querySelector('.btn-text').textContent = '✨ Grade This Card';
         updateGradeButton();
       }
@@ -1817,20 +1787,9 @@
       return '#ef4444';
     }
 
-    function getGradeClass(grade) {
-      const rounded = Math.round(grade);
-      if (rounded >= 9) return 'grade-10';
-      if (rounded >= 7) return 'grade-8';
-      if (rounded >= 5) return 'grade-6';
-      if (rounded >= 3) return 'grade-4';
-      return 'grade-2';
-    }
-
     function displayResults(data) {
       const color = getGradeColor(data.overallGrade);
-      const gradeClass = getGradeClass(data.overallGrade);
 
-      // Overall grade
       const overallCard = document.getElementById('overall-card');
       overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
       overallCard.style.borderColor = color;
@@ -1841,35 +1800,39 @@
       document.getElementById('overall-name').style.color = color;
       document.getElementById('psa-badge').textContent = data.psaEquivalent;
 
-      // Set adjuster value
       document.getElementById('adjuster-value').textContent = data.overallGrade;
       document.getElementById('adjuster-value').style.color = color;
       document.getElementById('grade-down').disabled = data.overallGrade <= 1;
       document.getElementById('grade-up').disabled = data.overallGrade >= 10;
 
-      // Hide manual indicator initially
       document.getElementById('manual-indicator').classList.add('hidden');
 
-      // Card info
+      // Card info with card number
       const infoGrid = document.getElementById('info-grid');
       const cardInfo = data.cardIdentification;
       infoGrid.innerHTML = `
         <div class="info-item">
           <div class="label">Category</div>
-          <div class="value">${cardInfo.sport || 'Unknown'}</div>
+          <div class="value">${toUpperCase(cardInfo.sport) || 'UNKNOWN'}</div>
         </div>
         <div class="info-item">
           <div class="label">Player/Character</div>
-          <div class="value">${cardInfo.playerOrCharacter || 'Unknown'}</div>
+          <div class="value">${toUpperCase(cardInfo.playerOrCharacter) || 'UNKNOWN'}</div>
         </div>
         <div class="info-item">
           <div class="label">Set</div>
-          <div class="value">${cardInfo.cardSet || 'Unknown'}</div>
+          <div class="value">${toUpperCase(cardInfo.cardSet) || 'UNKNOWN'}</div>
         </div>
         ${cardInfo.year ? `
           <div class="info-item">
             <div class="label">Year</div>
             <div class="value">${cardInfo.year}</div>
+          </div>
+        ` : ''}
+        ${cardInfo.cardNumber ? `
+          <div class="info-item">
+            <div class="label">Card #</div>
+            <div class="value">${toUpperCase(cardInfo.cardNumber)}</div>
           </div>
         ` : ''}
       `;
@@ -1882,7 +1845,7 @@
 
       for (const [key, value] of Object.entries(data.grades)) {
         const itemColor = getGradeColor(value.score);
-        const displayName = key.replace(/([A-Z])/g, ' $1').trim();
+        const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
 
         breakdown.innerHTML += `
           <div class="grade-item">
@@ -1905,10 +1868,8 @@
         `;
       }
 
-      // Summary
       document.getElementById('summary-text').textContent = data.summary;
 
-      // Market notes
       const marketNotes = document.getElementById('market-notes');
       if (data.marketNotes) {
         document.getElementById('market-text').textContent = data.marketNotes;
@@ -1958,7 +1919,6 @@
       hideError(authError);
     });
 
-    // Enter key for forms
     document.getElementById('login-password').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') login();
     });
@@ -1967,7 +1927,6 @@
       if (e.key === 'Enter') signup();
     });
 
-    // Modal close
     document.getElementById('modal-close').addEventListener('click', () => {
       document.getElementById('card-modal').classList.remove('visible');
     });
@@ -1978,13 +1937,11 @@
       }
     });
 
-    // Make functions global
     window.clearImage = clearImage;
     window.viewCard = viewCard;
     window.deleteCard = deleteCard;
     window.adjustGrade = adjustGrade;
 
-    // Initialize
     initUploadZones();
     checkAuth();
   </script>
