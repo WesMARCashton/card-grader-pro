@@ -505,6 +505,85 @@
       font-weight: 500;
     }
 
+    /* Grade Adjuster */
+    .grade-adjuster {
+      margin-top: 24px;
+      padding: 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px dashed rgba(255,255,255,0.2);
+    }
+
+    .grade-adjuster-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .grade-adjuster-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .grade-adjuster-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grade-adjuster-btn:hover {
+      background: rgba(168,85,247,0.3);
+      border-color: #a855f7;
+    }
+
+    .grade-adjuster-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .grade-adjuster-value {
+      font-size: 32px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .grade-adjuster-hint {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .manual-badge {
+      display: inline-block;
+      background: rgba(245,158,11,0.2);
+      color: #fbbf24;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     /* Card Info Grid */
     .info-grid {
       display: grid;
@@ -558,7 +637,7 @@
     .grade-item .bar-fill {
       height: 100%;
       border-radius: 4px;
-      transition: width 0.8s ease-out;
+      transition: width 0.5s ease-out, background 0.3s;
     }
 
     .grade-item .score {
@@ -566,6 +645,7 @@
       text-align: right;
       font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
+      transition: color 0.3s;
     }
 
     /* Notes */
@@ -637,6 +717,7 @@
       background: rgba(255,255,255,0.02);
       font-size: 13px;
       border: 1px solid transparent;
+      transition: all 0.3s;
     }
 
     .psa-item.active {
@@ -1008,10 +1089,23 @@
 
           <!-- Overall Grade -->
           <div class="result-card overall-grade" id="overall-card">
-            <div class="label">Overall Grade</div>
+            <div class="label">Overall Grade <span id="manual-indicator" class="manual-badge hidden">Manually Adjusted</span></div>
             <div class="score" id="overall-score">-</div>
             <div class="grade-name" id="overall-name">-</div>
             <div class="psa-badge" id="psa-badge">-</div>
+            
+            <!-- Grade Adjuster -->
+            <div class="grade-adjuster">
+              <div class="grade-adjuster-label">
+                ✏️ Adjust Grade Manually
+              </div>
+              <div class="grade-adjuster-controls">
+                <button class="grade-adjuster-btn" id="grade-down" onclick="adjustGrade(-0.5)">−</button>
+                <div class="grade-adjuster-value" id="adjuster-value">-</div>
+                <button class="grade-adjuster-btn" id="grade-up" onclick="adjustGrade(0.5)">+</button>
+              </div>
+              <div class="grade-adjuster-hint">Category scores will adjust proportionally</div>
+            </div>
           </div>
 
           <!-- Card Identification -->
@@ -1096,7 +1190,9 @@
     let frontFile = null;
     let backFile = null;
     let currentGradingResult = null;
+    let originalGradingResult = null; // Store original AI result
     let collection = [];
+    let isManuallyAdjusted = false;
 
     // Elements
     const authScreen = document.getElementById('auth-screen');
@@ -1288,7 +1384,7 @@
         <div class="collection-card" data-id="${card.id}">
           <img src="data:image/jpeg;base64,${card.frontImage}" alt="${card.cardIdentification?.playerOrCharacter || 'Card'}">
           <div class="collection-card-info">
-            <div class="collection-card-name">${card.cardIdentification?.playerOrCharacter || 'Unknown'}</div>
+            <div class="collection-card-name">${card.cardIdentification?.playerOrCharacter || 'Unknown'}${card.manuallyAdjusted ? ' ✏️' : ''}</div>
             <div class="collection-card-set">${card.cardIdentification?.cardSet || ''} ${card.cardIdentification?.year || ''}</div>
             <div class="collection-card-grade">
               <span class="score" style="color: ${getGradeColor(card.overallGrade)}">${card.overallGrade}</span>
@@ -1313,6 +1409,7 @@
       const savedCard = {
         id: Date.now(),
         savedAt: new Date().toISOString(),
+        manuallyAdjusted: isManuallyAdjusted,
         ...currentGradingResult
       };
 
@@ -1367,6 +1464,7 @@
           <div style="font-size: 48px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: ${color};">${card.overallGrade}</div>
           <div style="font-size: 18px; color: ${color}; margin-top: 4px;">${PSA_GRADES[Math.round(card.overallGrade)] || ''}</div>
           <div style="margin-top: 12px; background: rgba(255,255,255,0.1); display: inline-block; padding: 6px 16px; border-radius: 100px; font-size: 13px;">${card.psaEquivalent}</div>
+          ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ Manually Adjusted</div>' : ''}
         </div>
 
         <div style="margin-bottom: 24px;">
@@ -1397,6 +1495,105 @@
       `;
 
       modal.classList.add('visible');
+    }
+
+    // Grade adjustment functions
+    function adjustGrade(delta) {
+      if (!currentGradingResult || !originalGradingResult) return;
+
+      const newGrade = Math.max(1, Math.min(10, currentGradingResult.overallGrade + delta));
+      
+      // Don't allow same grade
+      if (newGrade === currentGradingResult.overallGrade) return;
+
+      // Calculate the ratio for proportional adjustment
+      const ratio = newGrade / originalGradingResult.overallGrade;
+
+      // Update overall grade
+      currentGradingResult.overallGrade = newGrade;
+      currentGradingResult.psaEquivalent = `PSA ${Math.round(newGrade)}`;
+
+      // Proportionally adjust all category scores
+      for (const key in currentGradingResult.grades) {
+        const originalScore = originalGradingResult.grades[key].score;
+        let newScore = originalScore * ratio;
+        // Clamp between 1 and 10, round to nearest 0.5
+        newScore = Math.max(1, Math.min(10, Math.round(newScore * 2) / 2));
+        currentGradingResult.grades[key].score = newScore;
+      }
+
+      // Mark as manually adjusted
+      isManuallyAdjusted = newGrade !== originalGradingResult.overallGrade;
+
+      // Update the display
+      updateGradeDisplay();
+    }
+
+    function updateGradeDisplay() {
+      const color = getGradeColor(currentGradingResult.overallGrade);
+
+      // Update overall grade card
+      const overallCard = document.getElementById('overall-card');
+      overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
+      overallCard.style.borderColor = color;
+
+      document.getElementById('overall-score').textContent = currentGradingResult.overallGrade;
+      document.getElementById('overall-score').style.color = color;
+      document.getElementById('overall-name').textContent = PSA_GRADES[Math.round(currentGradingResult.overallGrade)] || '';
+      document.getElementById('overall-name').style.color = color;
+      document.getElementById('psa-badge').textContent = currentGradingResult.psaEquivalent;
+
+      // Update adjuster value
+      document.getElementById('adjuster-value').textContent = currentGradingResult.overallGrade;
+      document.getElementById('adjuster-value').style.color = color;
+
+      // Update button states
+      document.getElementById('grade-down').disabled = currentGradingResult.overallGrade <= 1;
+      document.getElementById('grade-up').disabled = currentGradingResult.overallGrade >= 10;
+
+      // Show/hide manual indicator
+      const manualIndicator = document.getElementById('manual-indicator');
+      if (isManuallyAdjusted) {
+        manualIndicator.classList.remove('hidden');
+      } else {
+        manualIndicator.classList.add('hidden');
+      }
+
+      // Update grades breakdown
+      const breakdown = document.getElementById('grades-breakdown');
+      breakdown.innerHTML = '';
+
+      for (const [key, value] of Object.entries(currentGradingResult.grades)) {
+        const itemColor = getGradeColor(value.score);
+        const displayName = key.replace(/([A-Z])/g, ' $1').trim();
+
+        breakdown.innerHTML += `
+          <div class="grade-item">
+            <div class="name">
+              ${displayName}
+              ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
+            </div>
+            <div class="bar">
+              <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+            </div>
+            <div class="score" style="color: ${itemColor};">${value.score}</div>
+          </div>
+        `;
+      }
+
+      // Update PSA Scale highlighting
+      const psaScale = document.getElementById('psa-scale');
+      psaScale.innerHTML = '';
+      for (let i = 10; i >= 1; i--) {
+        const itemColor = getGradeColor(i);
+        const isActive = Math.round(currentGradingResult.overallGrade) === i;
+        psaScale.innerHTML += `
+          <div class="psa-item ${isActive ? 'active' : ''}" style="${isActive ? `background: ${itemColor}30; border-color: ${itemColor};` : ''}">
+            <span class="grade" style="color: ${itemColor};">${i}</span>
+            <span class="name">${PSA_GRADES[i]}</span>
+          </div>
+        `;
+      }
     }
 
     // Upload functions - Fixed version
@@ -1539,9 +1736,12 @@
 
       // Reset state
       currentGradingResult = null;
+      originalGradingResult = null;
+      isManuallyAdjusted = false;
       results.classList.remove('visible');
       hideError(gradeError);
       document.getElementById('save-message').classList.add('hidden');
+      document.getElementById('manual-indicator').classList.add('hidden');
 
       // Reset save button
       const saveBtn = document.getElementById('save-btn');
@@ -1583,7 +1783,11 @@
         const data = await res.json();
 
         if (res.ok) {
+          // Store original result for ratio calculations
+          originalGradingResult = JSON.parse(JSON.stringify(data));
           currentGradingResult = data;
+          isManuallyAdjusted = false;
+          
           displayResults(data);
 
           // Reset save button for new card
@@ -1636,6 +1840,15 @@
       document.getElementById('overall-name').textContent = PSA_GRADES[Math.round(data.overallGrade)] || '';
       document.getElementById('overall-name').style.color = color;
       document.getElementById('psa-badge').textContent = data.psaEquivalent;
+
+      // Set adjuster value
+      document.getElementById('adjuster-value').textContent = data.overallGrade;
+      document.getElementById('adjuster-value').style.color = color;
+      document.getElementById('grade-down').disabled = data.overallGrade <= 1;
+      document.getElementById('grade-up').disabled = data.overallGrade >= 10;
+
+      // Hide manual indicator initially
+      document.getElementById('manual-indicator').classList.add('hidden');
 
       // Card info
       const infoGrid = document.getElementById('info-grid');
@@ -1769,6 +1982,7 @@
     window.clearImage = clearImage;
     window.viewCard = viewCard;
     window.deleteCard = deleteCard;
+    window.adjustGrade = adjustGrade;
 
     // Initialize
     initUploadZones();
