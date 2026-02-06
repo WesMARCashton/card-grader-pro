@@ -338,9 +338,9 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
-          temperature: 0.4,
-          topK: 32,
-          topP: 1,
+          temperature: 0.1,
+          topK: 1,
+          topP: 0.95,
           maxOutputTokens: 4096,
         }
       })
