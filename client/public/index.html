@@ -580,6 +580,43 @@
       text-transform: uppercase;
     }
 
+    .info-item .editable-input {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      text-transform: uppercase;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .info-item .editable-input:hover {
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    .info-item .editable-input:focus {
+      border-color: #a855f7;
+      background: rgba(168,85,247,0.1);
+    }
+
+    .info-item .editable-input::placeholder {
+      color: rgba(255,255,255,0.3);
+      text-transform: none;
+    }
+
+    .edit-hint {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 12px;
+      text-align: center;
+      font-style: italic;
+    }
+
     .grade-item {
       display: flex;
       align-items: center;
@@ -1069,6 +1106,7 @@
           <div class="result-card" id="card-info">
             <h3>CARD IDENTIFIED</h3>
             <div class="info-grid" id="info-grid"></div>
+            <div class="edit-hint">✏️ Click any field above to edit before saving</div>
           </div>
 
           <div class="result-card">
@@ -1807,34 +1845,30 @@
 
       document.getElementById('manual-indicator').classList.add('hidden');
 
-      // Card info with card number
+      // Card info with editable inputs
       const infoGrid = document.getElementById('info-grid');
       const cardInfo = data.cardIdentification;
       infoGrid.innerHTML = `
         <div class="info-item">
           <div class="label">Category</div>
-          <div class="value">${toUpperCase(cardInfo.sport) || 'UNKNOWN'}</div>
+          <input type="text" class="editable-input" id="edit-sport" value="${toUpperCase(cardInfo.sport) || ''}" placeholder="e.g. NHL, NBA, POKEMON" onchange="updateCardInfo('sport', this.value)">
         </div>
         <div class="info-item">
           <div class="label">Player/Character</div>
-          <div class="value">${toUpperCase(cardInfo.playerOrCharacter) || 'UNKNOWN'}</div>
+          <input type="text" class="editable-input" id="edit-player" value="${toUpperCase(cardInfo.playerOrCharacter) || ''}" placeholder="Player or character name" onchange="updateCardInfo('playerOrCharacter', this.value)">
         </div>
         <div class="info-item">
           <div class="label">Set</div>
-          <div class="value">${toUpperCase(cardInfo.cardSet) || 'UNKNOWN'}</div>
+          <input type="text" class="editable-input" id="edit-set" value="${toUpperCase(cardInfo.cardSet) || ''}" placeholder="Card set name" onchange="updateCardInfo('cardSet', this.value)">
         </div>
-        ${cardInfo.year ? `
-          <div class="info-item">
-            <div class="label">Year</div>
-            <div class="value">${cardInfo.year}</div>
-          </div>
-        ` : ''}
-        ${cardInfo.cardNumber ? `
-          <div class="info-item">
-            <div class="label">Card #</div>
-            <div class="value">${toUpperCase(cardInfo.cardNumber)}</div>
-          </div>
-        ` : ''}
+        <div class="info-item">
+          <div class="label">Year</div>
+          <input type="text" class="editable-input" id="edit-year" value="${cardInfo.year || ''}" placeholder="e.g. 2008-09" onchange="updateCardInfo('year', this.value)">
+        </div>
+        <div class="info-item">
+          <div class="label">Card #</div>
+          <input type="text" class="editable-input" id="edit-cardNumber" value="${toUpperCase(cardInfo.cardNumber) || ''}" placeholder="Card number" onchange="updateCardInfo('cardNumber', this.value)">
+        </div>
       `;
 
       // Grades breakdown
@@ -1941,6 +1975,13 @@
     window.viewCard = viewCard;
     window.deleteCard = deleteCard;
     window.adjustGrade = adjustGrade;
+    
+    // Function to update card info when user edits fields
+    window.updateCardInfo = function(field, value) {
+      if (currentGradingResult && currentGradingResult.cardIdentification) {
+        currentGradingResult.cardIdentification[field] = value.toUpperCase();
+      }
+    };
 
     initUploadZones();
     checkAuth();
