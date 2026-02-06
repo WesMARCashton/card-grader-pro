@@ -30,7 +30,8 @@ users.set('demo@cardgrader.com', {
   email: 'demo@cardgrader.com',
   password: bcrypt.hashSync('demo123', 10),
   name: 'Demo User',
-  gradingHistory: []
+  gradingHistory: [],
+  collection: []
 });
 
 // JWT Middleware
@@ -73,7 +74,8 @@ app.post('/api/auth/signup', async (req, res) => {
       email,
       password: hashedPassword,
       name,
-      gradingHistory: []
+      gradingHistory: [],
+      collection: []
     });
 
     const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -139,6 +141,10 @@ app.post('/api/grade', authenticateToken, upload.fields([
     // Call Gemini API
     const result = await gradeCardWithGemini(frontBase64, backBase64);
     
+    // Add image data to result for saving to collection
+    result.frontImage = frontBase64;
+    result.backImage = backBase64;
+    
     // Save to user's history
     const user = users.get(req.user.email);
     if (user) {
@@ -166,6 +172,81 @@ app.get('/api/history', authenticateToken, (req, res) => {
   }
   res.json(user.gradingHistory || []);
 });
+
+// ============ COLLECTION ROUTES ============
+
+// Save card to collection
+app.post('/api/collection', authenticateToken, (req, res) => {
+  try {
+    const { card } = req.body;
+    
+    if (!card) {
+      return res.status(400).json({ error: 'Card data is required' });
+    }
+
+    const user = users.get(req.user.email);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Initialize collection if it doesn't exist
+    if (!user.collection) {
+      user.collection = [];
+    }
+
+    // Add card with unique ID and timestamp
+    const savedCard = {
+      id: Date.now(),
+      savedAt: new Date().toISOString(),
+      ...card
+    };
+
+    user.collection.unshift(savedCard);
+
+    res.json({ success: true, card: savedCard });
+  } catch (error) {
+    console.error('Save to collection error:', error);
+    res.status(500).json({ error: 'Failed to save card' });
+  }
+});
+
+// Get user's collection
+app.get('/api/collection', authenticateToken, (req, res) => {
+  const user = users.get(req.user.email);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  res.json(user.collection || []);
+});
+
+// Delete card from collection
+app.delete('/api/collection/:id', authenticateToken, (req, res) => {
+  try {
+    const cardId = parseInt(req.params.id);
+    const user = users.get(req.user.email);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.collection) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+
+    const index = user.collection.findIndex(card => card.id === cardId);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+
+    user.collection.splice(index, 1);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete from collection error:', error);
+    res.status(500).json({ error: 'Failed to delete card' });
+  }
+});
+
+// ============ END COLLECTION ROUTES ============
 
 // Gemini API Integration
 async function gradeCardWithGemini(frontBase64, backBase64) {
