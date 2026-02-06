@@ -395,6 +395,7 @@
       align-items: center;
       justify-content: center;
       transition: background 0.2s;
+      z-index: 10;
     }
 
     .clear-btn:hover {
@@ -958,7 +959,7 @@
       <!-- Grade Card View -->
       <div id="grade-view">
         <!-- Upload Section -->
-        <div class="upload-grid">
+        <div class="upload-grid" id="upload-grid">
           <div>
             <div class="upload-label">
               <span class="dot" style="background: #a855f7;"></span>
@@ -969,8 +970,8 @@
               <div class="icon">📷</div>
               <div class="text">Drop image or click to upload</div>
               <div class="subtext">JPG, PNG, WebP</div>
-              <input type="file" id="front-input" accept="image/*">
             </div>
+            <input type="file" id="front-input" accept="image/*" style="display:none;">
           </div>
           <div>
             <div class="upload-label">
@@ -982,8 +983,8 @@
               <div class="icon">🔄</div>
               <div class="text">Drop back image (optional)</div>
               <div class="subtext">Helps assess centering</div>
-              <input type="file" id="back-input" accept="image/*">
             </div>
+            <input type="file" id="back-input" accept="image/*" style="display:none;">
           </div>
         </div>
 
@@ -1111,6 +1112,39 @@
     const tabGrade = document.getElementById('tab-grade');
     const tabCollection = document.getElementById('tab-collection');
     const collectionCount = document.getElementById('collection-count');
+    const frontUpload = document.getElementById('front-upload');
+    const backUpload = document.getElementById('back-upload');
+    const frontInput = document.getElementById('front-input');
+    const backInput = document.getElementById('back-input');
+
+    // Collection storage key based on user email
+    function getCollectionKey() {
+      return `cardgrader_collection_${currentUser?.email || 'guest'}`;
+    }
+
+    // Load collection from localStorage
+    function loadCollectionFromStorage() {
+      try {
+        const saved = localStorage.getItem(getCollectionKey());
+        if (saved) {
+          collection = JSON.parse(saved);
+        } else {
+          collection = [];
+        }
+      } catch (e) {
+        collection = [];
+      }
+      updateCollectionCount();
+    }
+
+    // Save collection to localStorage
+    function saveCollectionToStorage() {
+      try {
+        localStorage.setItem(getCollectionKey(), JSON.stringify(collection));
+      } catch (e) {
+        console.error('Failed to save collection:', e);
+      }
+    }
 
     // Auth functions
     function showError(el, message) {
@@ -1126,7 +1160,7 @@
       authScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
       document.getElementById('user-name').textContent = currentUser?.name || '';
-      loadCollection();
+      loadCollectionFromStorage();
     }
 
     function showAuth() {
@@ -1233,20 +1267,6 @@
     }
 
     // Collection functions
-    async function loadCollection() {
-      try {
-        const res = await fetch('/api/collection', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          collection = await res.json();
-          updateCollectionCount();
-        }
-      } catch (e) {
-        console.error('Failed to load collection:', e);
-      }
-    }
-
     function updateCollectionCount() {
       collectionCount.textContent = collection.length > 0 ? `(${collection.length})` : '';
     }
@@ -1283,61 +1303,38 @@
       `).join('');
     }
 
-    async function saveToCollection() {
+    function saveToCollection() {
       if (!currentGradingResult) return;
 
       const saveBtn = document.getElementById('save-btn');
       const saveMessage = document.getElementById('save-message');
 
+      // Add card with unique ID and timestamp
+      const savedCard = {
+        id: Date.now(),
+        savedAt: new Date().toISOString(),
+        ...currentGradingResult
+      };
+
+      collection.unshift(savedCard);
+      saveCollectionToStorage();
+      updateCollectionCount();
+      
+      saveMessage.classList.remove('hidden');
+      saveBtn.textContent = '✓ Saved!';
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving...';
-
-      try {
-        const res = await fetch('/api/collection', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ card: currentGradingResult })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          collection.unshift(data.card);
-          updateCollectionCount();
-          saveMessage.classList.remove('hidden');
-          saveBtn.textContent = '✓ Saved!';
-          saveBtn.classList.remove('btn-success');
-          saveBtn.classList.add('btn-secondary');
-        } else {
-          throw new Error('Failed to save');
-        }
-      } catch (e) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 Save to Collection';
-        showError(gradeError, 'Failed to save card. Please try again.');
-      }
+      saveBtn.classList.remove('btn-success');
+      saveBtn.classList.add('btn-secondary');
     }
 
-    async function deleteCard(id, event) {
+    function deleteCard(id, event) {
       event.stopPropagation();
       if (!confirm('Are you sure you want to delete this card from your collection?')) return;
 
-      try {
-        const res = await fetch(`/api/collection/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (res.ok) {
-          collection = collection.filter(c => c.id !== id);
-          updateCollectionCount();
-          renderCollection();
-        }
-      } catch (e) {
-        alert('Failed to delete card');
-      }
+      collection = collection.filter(c => c.id !== id);
+      saveCollectionToStorage();
+      updateCollectionCount();
+      renderCollection();
     }
 
     function viewCard(id) {
@@ -1402,48 +1399,80 @@
       modal.classList.add('visible');
     }
 
-    // Upload functions
-    function setupUpload(zoneId, inputId, side) {
-      const zone = document.getElementById(zoneId);
-      const input = document.getElementById(inputId);
-
-      zone.addEventListener('click', () => {
-        if (!zone.classList.contains('has-image')) {
-          input.click();
+    // Upload functions - Fixed version
+    function initUploadZones() {
+      // Front upload zone click
+      frontUpload.onclick = function(e) {
+        if (!frontUpload.classList.contains('has-image')) {
+          frontInput.click();
         }
-      });
+      };
 
-      zone.addEventListener('dragover', (e) => {
+      // Back upload zone click
+      backUpload.onclick = function(e) {
+        if (!backUpload.classList.contains('has-image')) {
+          backInput.click();
+        }
+      };
+
+      // Front input change
+      frontInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          handleFile(file, 'front');
+        }
+      };
+
+      // Back input change
+      backInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          handleFile(file, 'back');
+        }
+      };
+
+      // Drag and drop for front
+      frontUpload.ondragover = function(e) {
         e.preventDefault();
         e.stopPropagation();
-      });
+      };
 
-      zone.addEventListener('drop', (e) => {
+      frontUpload.ondrop = function(e) {
         e.preventDefault();
         e.stopPropagation();
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('image/')) {
-          handleFile(file, zone, side);
+          handleFile(file, 'front');
         }
-      });
+      };
 
-      input.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          handleFile(file, zone, side);
+      // Drag and drop for back
+      backUpload.ondragover = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      backUpload.ondrop = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          handleFile(file, 'back');
         }
-      });
+      };
     }
 
-    function handleFile(file, zone, side) {
+    function handleFile(file, side) {
       if (side === 'front') {
         frontFile = file;
       } else {
         backFile = file;
       }
 
+      const zone = side === 'front' ? frontUpload : backUpload;
+      
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = function(e) {
         zone.innerHTML = `
           <button class="clear-btn" onclick="clearImage('${side}', event)">×</button>
           <img src="${e.target.result}" alt="Card ${side}">
@@ -1459,26 +1488,22 @@
 
       if (side === 'front') {
         frontFile = null;
-        const zone = document.getElementById('front-upload');
-        zone.innerHTML = `
+        frontInput.value = '';
+        frontUpload.innerHTML = `
           <div class="icon">📷</div>
           <div class="text">Drop image or click to upload</div>
           <div class="subtext">JPG, PNG, WebP</div>
-          <input type="file" id="front-input" accept="image/*">
         `;
-        zone.classList.remove('has-image');
-        setupUpload('front-upload', 'front-input', 'front');
+        frontUpload.classList.remove('has-image');
       } else {
         backFile = null;
-        const zone = document.getElementById('back-upload');
-        zone.innerHTML = `
+        backInput.value = '';
+        backUpload.innerHTML = `
           <div class="icon">🔄</div>
           <div class="text">Drop back image (optional)</div>
           <div class="subtext">Helps assess centering</div>
-          <input type="file" id="back-input" accept="image/*">
         `;
-        zone.classList.remove('has-image');
-        setupUpload('back-upload', 'back-input', 'back');
+        backUpload.classList.remove('has-image');
       }
 
       updateGradeButton();
@@ -1490,9 +1515,27 @@
     }
 
     function resetGrading() {
-      // Clear images
-      clearImage('front', { stopPropagation: () => {} });
-      clearImage('back', { stopPropagation: () => {} });
+      // Reset files
+      frontFile = null;
+      backFile = null;
+      frontInput.value = '';
+      backInput.value = '';
+      
+      // Reset front upload zone
+      frontUpload.innerHTML = `
+        <div class="icon">📷</div>
+        <div class="text">Drop image or click to upload</div>
+        <div class="subtext">JPG, PNG, WebP</div>
+      `;
+      frontUpload.classList.remove('has-image');
+      
+      // Reset back upload zone
+      backUpload.innerHTML = `
+        <div class="icon">🔄</div>
+        <div class="text">Drop back image (optional)</div>
+        <div class="subtext">Helps assess centering</div>
+      `;
+      backUpload.classList.remove('has-image');
 
       // Reset state
       currentGradingResult = null;
@@ -1506,6 +1549,9 @@
       saveBtn.textContent = '💾 Save to Collection';
       saveBtn.classList.add('btn-success');
       saveBtn.classList.remove('btn-secondary');
+
+      // Update grade button
+      updateGradeButton();
 
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1725,8 +1771,7 @@
     window.deleteCard = deleteCard;
 
     // Initialize
-    setupUpload('front-upload', 'front-input', 'front');
-    setupUpload('back-upload', 'back-input', 'back');
+    initUploadZones();
     checkAuth();
   </script>
 </body>
