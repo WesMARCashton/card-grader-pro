@@ -91,7 +91,7 @@ async function sendVerificationEmail(email, name, token) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'CardGrade Pro <onboarding@resend.dev>',
+        from: 'CardGrade Pro <noreply@themarcgroupinc.com>',
         to: email,
         subject: 'Verify your CardGrade Pro account',
         html: `
