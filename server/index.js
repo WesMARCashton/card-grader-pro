@@ -256,19 +256,12 @@ app.post('/api/auth/signup', async (req, res) => {
         requiresVerification: true
       });
     } else {
-      // If email fails, still create account but mark as verified (fallback)
-      await usersCollection.updateOne(
-        { email: email.toLowerCase() },
-        { $set: { isVerified: true } }
-      );
-      
-      const token = jwt.sign(
-        { email: newUser.email, name: newUser.name },
-        process.env.JWT_SECRET || 'cardgrader-secret-key-2024',
-        { expiresIn: '7d' }
-      );
-      
-      res.json({ token, user: { email: newUser.email, name: newUser.name } });
+      // If email fails, still require verification but let user know to try again
+      res.json({ 
+        success: true, 
+        message: 'Account created! We had trouble sending the verification email. Please use the resend option.',
+        requiresVerification: true
+      });
     }
   } catch (error) {
     console.error('Signup error:', error);
