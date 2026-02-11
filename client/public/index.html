@@ -1299,6 +1299,26 @@
       appScreen.classList.remove('hidden');
       document.getElementById('user-name').textContent = currentUser?.name || '';
       loadCollectionFromServer();
+      
+      // Hide grade adjuster for non-admins
+      const gradeAdjuster = document.querySelector('.grade-adjuster');
+      if (gradeAdjuster) {
+        if (currentUser?.isAdmin) {
+          gradeAdjuster.style.display = 'block';
+        } else {
+          gradeAdjuster.style.display = 'none';
+        }
+      }
+      
+      // Hide card info edit hint for non-admins
+      const editHint = document.querySelector('.edit-hint');
+      if (editHint) {
+        if (currentUser?.isAdmin) {
+          editHint.style.display = 'block';
+        } else {
+          editHint.style.display = 'none';
+        }
+      }
     }
 
     function showAuth() {
@@ -1943,31 +1963,62 @@
 
       document.getElementById('manual-indicator').classList.add('hidden');
 
-      // Card info with editable inputs
+      // Card info - editable for admins, readonly for users
       const infoGrid = document.getElementById('info-grid');
       const cardInfo = data.cardIdentification;
-      infoGrid.innerHTML = `
-        <div class="info-item">
-          <div class="label">Category</div>
-          <input type="text" class="editable-input" id="edit-sport" value="${toUpperCase(cardInfo.sport) || ''}" placeholder="e.g. NHL, NBA, POKEMON" onchange="updateCardInfo('sport', this.value)">
-        </div>
-        <div class="info-item">
-          <div class="label">Player/Character</div>
-          <input type="text" class="editable-input" id="edit-player" value="${toUpperCase(cardInfo.playerOrCharacter) || ''}" placeholder="Player or character name" onchange="updateCardInfo('playerOrCharacter', this.value)">
-        </div>
-        <div class="info-item">
-          <div class="label">Set</div>
-          <input type="text" class="editable-input" id="edit-set" value="${toUpperCase(cardInfo.cardSet) || ''}" placeholder="Card set name" onchange="updateCardInfo('cardSet', this.value)">
-        </div>
-        <div class="info-item">
-          <div class="label">Year</div>
-          <input type="text" class="editable-input" id="edit-year" value="${cardInfo.year || ''}" placeholder="e.g. 2008-09" onchange="updateCardInfo('year', this.value)">
-        </div>
-        <div class="info-item">
-          <div class="label">Card #</div>
-          <input type="text" class="editable-input" id="edit-cardNumber" value="${toUpperCase(cardInfo.cardNumber) || ''}" placeholder="Card number" onchange="updateCardInfo('cardNumber', this.value)">
-        </div>
-      `;
+      const isAdmin = currentUser?.isAdmin;
+      
+      if (isAdmin) {
+        infoGrid.innerHTML = `
+          <div class="info-item">
+            <div class="label">Category</div>
+            <input type="text" class="editable-input" id="edit-sport" value="${toUpperCase(cardInfo.sport) || ''}" placeholder="e.g. NHL, NBA, POKEMON" onchange="updateCardInfo('sport', this.value)">
+          </div>
+          <div class="info-item">
+            <div class="label">Player/Character</div>
+            <input type="text" class="editable-input" id="edit-player" value="${toUpperCase(cardInfo.playerOrCharacter) || ''}" placeholder="Player or character name" onchange="updateCardInfo('playerOrCharacter', this.value)">
+          </div>
+          <div class="info-item">
+            <div class="label">Set</div>
+            <input type="text" class="editable-input" id="edit-set" value="${toUpperCase(cardInfo.cardSet) || ''}" placeholder="Card set name" onchange="updateCardInfo('cardSet', this.value)">
+          </div>
+          <div class="info-item">
+            <div class="label">Year</div>
+            <input type="text" class="editable-input" id="edit-year" value="${cardInfo.year || ''}" placeholder="e.g. 2008-09" onchange="updateCardInfo('year', this.value)">
+          </div>
+          <div class="info-item">
+            <div class="label">Card #</div>
+            <input type="text" class="editable-input" id="edit-cardNumber" value="${toUpperCase(cardInfo.cardNumber) || ''}" placeholder="Card number" onchange="updateCardInfo('cardNumber', this.value)">
+          </div>
+        `;
+      } else {
+        infoGrid.innerHTML = `
+          <div class="info-item">
+            <div class="label">Category</div>
+            <div class="value">${toUpperCase(cardInfo.sport) || 'UNKNOWN'}</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Player/Character</div>
+            <div class="value">${toUpperCase(cardInfo.playerOrCharacter) || 'UNKNOWN'}</div>
+          </div>
+          <div class="info-item">
+            <div class="label">Set</div>
+            <div class="value">${toUpperCase(cardInfo.cardSet) || 'UNKNOWN'}</div>
+          </div>
+          ${cardInfo.year ? `
+            <div class="info-item">
+              <div class="label">Year</div>
+              <div class="value">${cardInfo.year}</div>
+            </div>
+          ` : ''}
+          ${cardInfo.cardNumber ? `
+            <div class="info-item">
+              <div class="label">Card #</div>
+              <div class="value">${toUpperCase(cardInfo.cardNumber)}</div>
+            </div>
+          ` : ''}
+        `;
+      }
 
       // Grades breakdown
       const breakdown = document.getElementById('grades-breakdown');

@@ -615,6 +615,7 @@
         <button class="tab active" onclick="showTab('users')">👥 Users</button>
         <button class="tab" onclick="showTab('cards')">🎴 All Cards</button>
         <button class="tab" onclick="showTab('admins')">🛡️ Admins</button>
+        <button class="tab" onclick="showTab('settings')">⚙️ Settings</button>
       </div>
 
       <!-- Users Table -->
@@ -694,6 +695,113 @@
             <tbody id="admins-table-body">
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settings-tab" class="hidden">
+        <div class="settings-section" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+          <h3 style="margin-bottom: 8px; font-size: 18px;">📊 Google Sheets Integration</h3>
+          <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 20px;">
+            Sync your graded cards to a Google Sheet. Follow the setup instructions below.
+          </p>
+          
+          <div style="margin-bottom: 20px;">
+            <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">GOOGLE APPS SCRIPT WEB APP URL</label>
+            <div style="display: flex; gap: 12px;">
+              <input type="text" id="sheet-url" class="form-input" placeholder="https://script.google.com/macros/s/..." style="flex: 1; margin-bottom: 0;">
+              <button class="btn btn-primary" onclick="saveSheetUrl()">Save</button>
+            </div>
+            <div id="sheet-url-message" style="margin-top: 8px; font-size: 13px; display: none;"></div>
+          </div>
+
+          <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px;">
+            <h4 style="font-size: 14px; margin-bottom: 12px;">📋 Setup Instructions</h4>
+            <ol style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.8; padding-left: 20px;">
+              <li>Open your Google Sheet</li>
+              <li>Go to <strong>Extensions → Apps Script</strong></li>
+              <li>Delete any existing code and paste the script below</li>
+              <li>Click <strong>Deploy → New deployment</strong></li>
+              <li>Select type: <strong>Web app</strong></li>
+              <li>Set "Who has access" to: <strong>Anyone</strong></li>
+              <li>Click <strong>Deploy</strong> and authorize when prompted</li>
+              <li>Copy the Web app URL and paste it above</li>
+            </ol>
+            
+            <div style="margin-top: 16px;">
+              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">APPS SCRIPT CODE (copy this):</label>
+              <div style="position: relative;">
+                <pre id="apps-script-code" style="background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 12px; font-size: 11px; overflow-x: auto; color: #a5f3fc; white-space: pre-wrap; word-break: break-all;">function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  
+  // Find next empty row
+  var lastRow = sheet.getLastRow();
+  var newRow = lastRow + 1;
+  
+  // Map data to columns A-X
+  sheet.getRange(newRow, 1).setValue(data.year);           // A - Year
+  sheet.getRange(newRow, 2).setValue(data.company);        // B - Company
+  sheet.getRange(newRow, 3).setValue(data.series);         // C - Series
+  sheet.getRange(newRow, 4).setValue(data.name);           // D - Name
+  sheet.getRange(newRow, 5).setValue(data.edition);        // E - Edition
+  sheet.getRange(newRow, 6).setValue(data.set);            // F - Set
+  sheet.getRange(newRow, 7).setValue(data.cardNumber);     // G - Card #
+  sheet.getRange(newRow, 8).setValue(data.mint);           // H - Mint
+  sheet.getRange(newRow, 9).setValue(data.finalGrade);     // I - Final Grade
+  // J & K left blank
+  sheet.getRange(newRow, 12).setValue(data.centeringGrade);    // L
+  sheet.getRange(newRow, 13).setValue(data.centeringNotes);    // M
+  sheet.getRange(newRow, 14).setValue(data.cornerGrade);       // N
+  sheet.getRange(newRow, 15).setValue(data.cornerNotes);       // O
+  sheet.getRange(newRow, 16).setValue(data.edgesGrade);        // P
+  sheet.getRange(newRow, 17).setValue(data.edgesNotes);        // Q
+  sheet.getRange(newRow, 18).setValue(data.surfaceGrade);      // R
+  sheet.getRange(newRow, 19).setValue(data.surfaceNotes);      // S
+  sheet.getRange(newRow, 20).setValue(data.printQualityGrade); // T
+  sheet.getRange(newRow, 21).setValue(data.printQualityNotes); // U
+  sheet.getRange(newRow, 22).setValue(data.summary);           // V
+  sheet.getRange(newRow, 23).setValue(data.frontImageUrl);     // W
+  sheet.getRange(newRow, 24).setValue(data.backImageUrl);      // X
+  
+  return ContentService.createTextOutput(JSON.stringify({success: true}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                <button onclick="copyScript()" class="btn btn-secondary" style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; font-size: 11px;">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sheet Column Reference -->
+        <div class="settings-section" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px;">
+          <h3 style="margin-bottom: 16px; font-size: 16px;">📑 Sheet Column Mapping</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; font-size: 12px;">
+            <div><span style="color: #a855f7; font-weight: 600;">A:</span> Year</div>
+            <div><span style="color: #a855f7; font-weight: 600;">B:</span> Company</div>
+            <div><span style="color: #a855f7; font-weight: 600;">C:</span> Series</div>
+            <div><span style="color: #a855f7; font-weight: 600;">D:</span> Name</div>
+            <div><span style="color: #a855f7; font-weight: 600;">E:</span> Edition</div>
+            <div><span style="color: #a855f7; font-weight: 600;">F:</span> Set</div>
+            <div><span style="color: #a855f7; font-weight: 600;">G:</span> Card #</div>
+            <div><span style="color: #a855f7; font-weight: 600;">H:</span> Mint Grade</div>
+            <div><span style="color: #a855f7; font-weight: 600;">I:</span> Final Grade</div>
+            <div><span style="color: rgba(255,255,255,0.3);">J:</span> <span style="color: rgba(255,255,255,0.3);">(blank)</span></div>
+            <div><span style="color: rgba(255,255,255,0.3);">K:</span> <span style="color: rgba(255,255,255,0.3);">(blank)</span></div>
+            <div><span style="color: #a855f7; font-weight: 600;">L:</span> Centering Grade</div>
+            <div><span style="color: #a855f7; font-weight: 600;">M:</span> Centering Notes</div>
+            <div><span style="color: #a855f7; font-weight: 600;">N:</span> Corner Grade</div>
+            <div><span style="color: #a855f7; font-weight: 600;">O:</span> Corner Notes</div>
+            <div><span style="color: #a855f7; font-weight: 600;">P:</span> Edges Grade</div>
+            <div><span style="color: #a855f7; font-weight: 600;">Q:</span> Edges Notes</div>
+            <div><span style="color: #a855f7; font-weight: 600;">R:</span> Surface Grade</div>
+            <div><span style="color: #a855f7; font-weight: 600;">S:</span> Surface Notes</div>
+            <div><span style="color: #a855f7; font-weight: 600;">T:</span> Print Quality</div>
+            <div><span style="color: #a855f7; font-weight: 600;">U:</span> Print Quality Notes</div>
+            <div><span style="color: #a855f7; font-weight: 600;">V:</span> Summary</div>
+            <div><span style="color: #a855f7; font-weight: 600;">W:</span> Front Image URL</div>
+            <div><span style="color: #a855f7; font-weight: 600;">X:</span> Back Image URL</div>
+          </div>
         </div>
       </div>
     </div>
@@ -928,6 +1036,7 @@
       document.getElementById('users-tab').classList.add('hidden');
       document.getElementById('cards-tab').classList.add('hidden');
       document.getElementById('admins-tab').classList.add('hidden');
+      document.getElementById('settings-tab').classList.add('hidden');
       document.getElementById(`${tab}-tab`).classList.remove('hidden');
       
       // Clear filter when switching tabs
@@ -938,6 +1047,11 @@
       // Load admins when switching to admins tab
       if (tab === 'admins') {
         loadAdmins();
+      }
+      
+      // Load settings when switching to settings tab
+      if (tab === 'settings') {
+        loadSettings();
       }
     }
 
@@ -987,10 +1101,14 @@
             <div>${card.userName || '-'}</div>
             <div style="font-size: 11px; color: rgba(255,255,255,0.4);">${card.userEmail}</div>
           </td>
-          <td>${new Date(card.savedAt).toLocaleDateString()}</td>
           <td>
-            <button class="btn btn-secondary" onclick="event.stopPropagation(); viewCardDetails('${card.id}')" style="margin-right: 8px;">View</button>
-            <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCard('${card.id}')">Delete</button>
+            ${new Date(card.savedAt).toLocaleDateString()}
+            ${card.syncedToSheet ? '<span style="color: #6ee7b7; font-size: 10px; display: block;">✓ synced</span>' : ''}
+          </td>
+          <td>
+            <button class="btn btn-secondary" onclick="event.stopPropagation(); viewCardDetails('${card.id}')" style="margin-right: 4px; padding: 6px 10px; font-size: 12px;">View</button>
+            <button class="btn btn-primary" onclick="event.stopPropagation(); syncCardToSheet('${card.id}')" style="margin-right: 4px; padding: 6px 10px; font-size: 12px;">Sync</button>
+            <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCard('${card.id}')" style="padding: 6px 10px; font-size: 12px;">Del</button>
           </td>
         </tr>
       `).join('');
@@ -1133,9 +1251,51 @@
             <p class="summary-text">${card.marketNotes}</p>
           </div>
         ` : ''}
+
+        <!-- Actions -->
+        <div style="display: flex; gap: 12px; margin-top: 20px;">
+          <button class="btn btn-primary" onclick="syncCardToSheet('${card.id}')" style="flex: 1;">
+            📊 Sync to Google Sheet
+          </button>
+          <button class="btn btn-danger" onclick="deleteCardFromModal('${card.id}')" style="flex: 1;">
+            🗑️ Delete Card
+          </button>
+        </div>
+        ${card.syncedToSheet ? `<div style="text-align: center; margin-top: 8px; font-size: 12px; color: #6ee7b7;">✓ Synced to sheet on ${new Date(card.syncedAt).toLocaleString()}</div>` : ''}
       `;
 
       modal.classList.remove('hidden');
+    }
+
+    async function syncCardToSheet(cardId) {
+      try {
+        const res = await fetch('/api/sync-to-sheet', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ cardId })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert('✓ Card synced to Google Sheet!');
+          loadCards(); // Refresh to show synced status
+        } else {
+          alert(data.error || 'Failed to sync to Google Sheet');
+        }
+      } catch (e) {
+        alert('Error syncing to Google Sheet');
+      }
+    }
+
+    async function deleteCardFromModal(cardId) {
+      if (!confirm('Are you sure you want to delete this card?')) return;
+      
+      await deleteCard(cardId);
+      closeModal();
     }
 
     function closeModal() {
@@ -1289,6 +1449,83 @@
       } catch (e) {
         alert('Error updating admin status');
       }
+    }
+
+    // ============ SETTINGS MANAGEMENT ============
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const settings = await res.json();
+          document.getElementById('sheet-url').value = settings.googleSheetUrl || '';
+        }
+      } catch (e) {
+        console.error('Failed to load settings:', e);
+      }
+    }
+
+    async function saveSheetUrl() {
+      const url = document.getElementById('sheet-url').value.trim();
+      const messageEl = document.getElementById('sheet-url-message');
+      
+      if (!url) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Please enter a URL';
+        return;
+      }
+      
+      if (!url.includes('script.google.com')) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Please enter a valid Google Apps Script URL';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ googleSheetUrl: url })
+        });
+
+        if (res.ok) {
+          messageEl.style.display = 'block';
+          messageEl.style.color = '#6ee7b7';
+          messageEl.textContent = '✓ Google Sheet URL saved successfully!';
+        } else {
+          messageEl.style.display = 'block';
+          messageEl.style.color = '#fca5a5';
+          messageEl.textContent = 'Failed to save URL';
+        }
+      } catch (e) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Connection error';
+      }
+    }
+
+    function copyScript() {
+      const code = document.getElementById('apps-script-code').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        alert('Script copied to clipboard!');
+      }).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('Script copied to clipboard!');
+      });
     }
 
     // Enter key for login

@@ -719,6 +719,141 @@ app.post('/api/admin/toggle-admin/:id', authenticateToken, requireAdmin, async (
   }
 });
 
+// ============ USER SETTINGS ============
+
+// Get user settings (including Google Sheet URL)
+app.get('/api/settings', authenticateToken, async (req, res) => {
+  try {
+    const user = await usersCollection.findOne({ email: req.user.email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      googleSheetUrl: user.googleSheetUrl || '',
+      googleSheetId: user.googleSheetId || ''
+    });
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update user settings
+app.post('/api/settings', authenticateToken, async (req, res) => {
+  try {
+    const { googleSheetUrl } = req.body;
+    
+    // Extract sheet ID from URL if provided
+    let googleSheetId = '';
+    if (googleSheetUrl) {
+      const match = googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        googleSheetId = match[1];
+      }
+    }
+    
+    await usersCollection.updateOne(
+      { email: req.user.email },
+      { $set: { googleSheetUrl, googleSheetId } }
+    );
+    
+    res.json({ success: true, googleSheetId });
+  } catch (error) {
+    console.error('Update settings error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Sync card to Google Sheet
+app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
+  try {
+    const { cardId } = req.body;
+    
+    // Get user's Google Sheet URL
+    const user = await usersCollection.findOne({ email: req.user.email });
+    if (!user || !user.googleSheetUrl) {
+      return res.status(400).json({ error: 'Google Sheet URL not configured. Please set it in Settings.' });
+    }
+    
+    // Get the card
+    const card = await cardsCollection.findOne({ 
+      _id: new ObjectId(cardId),
+      userEmail: req.user.email
+    });
+    
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    // Prepare data for Google Sheet
+    // Columns: A=Year, B=Company, C=Series, D=Name, E=Edition, F=Set, G=Card#, H=Mint, I=Final Grade
+    // J=blank, K=blank, L=Centering Grade, M=Centering Notes, N=Corner Grade, O=Corner Notes
+    // P=Edges Grade, Q=Edges Notes, R=Surface Grade, S=Surface Notes, T=Print Quality, U=Print Quality Notes
+    // V=Summary, W=Front Image URL, X=Back Image URL
+    
+    const rowData = {
+      year: card.cardIdentification?.year || '',
+      company: card.cardIdentification?.sport || '',
+      series: '', // We don't have this field separately
+      name: card.cardIdentification?.playerOrCharacter || '',
+      edition: '', // We don't have this field separately
+      set: card.cardIdentification?.cardSet || '',
+      cardNumber: card.cardIdentification?.cardNumber || '',
+      mint: PSA_GRADES[Math.round(card.overallGrade)] || '',
+      finalGrade: card.overallGrade,
+      centeringGrade: card.grades?.centering?.score || '',
+      centeringNotes: card.grades?.centering?.notes || '',
+      cornerGrade: card.grades?.corners?.score || '',
+      cornerNotes: card.grades?.corners?.notes || '',
+      edgesGrade: card.grades?.edges?.score || '',
+      edgesNotes: card.grades?.edges?.notes || '',
+      surfaceGrade: card.grades?.surface?.score || '',
+      surfaceNotes: card.grades?.surface?.notes || '',
+      printQualityGrade: card.grades?.printQuality?.score || '',
+      printQualityNotes: card.grades?.printQuality?.notes || '',
+      summary: card.summary || '',
+      frontImageUrl: card.frontImage ? `data:image/jpeg;base64,${card.frontImage.substring(0, 100)}...` : '',
+      backImageUrl: card.backImage ? `data:image/jpeg;base64,${card.backImage.substring(0, 100)}...` : ''
+    };
+    
+    // Send to Google Apps Script
+    const response = await fetch(user.googleSheetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rowData)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to sync to Google Sheet');
+    }
+    
+    // Mark card as synced
+    await cardsCollection.updateOne(
+      { _id: new ObjectId(cardId) },
+      { $set: { syncedToSheet: true, syncedAt: new Date() } }
+    );
+    
+    res.json({ success: true, message: 'Card synced to Google Sheet!' });
+  } catch (error) {
+    console.error('Sync to sheet error:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync to Google Sheet' });
+  }
+});
+
+const PSA_GRADES = {
+  10: 'GEM MINT',
+  9: 'MINT',
+  8: 'NM-MT',
+  7: 'NEAR MINT',
+  6: 'EX-MT',
+  5: 'EXCELLENT',
+  4: 'VG-EX',
+  3: 'VERY GOOD',
+  2: 'GOOD',
+  1: 'POOR'
+};
+
 // ============ GEMINI API INTEGRATION ============
 
 async function gradeCardWithGemini(frontBase64, backBase64) {
