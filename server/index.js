@@ -636,6 +636,89 @@ app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// Create an admin account (pre-verified, no email required)
+app.post('/api/admin/create-admin', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Check if user exists
+    const existingUser = await usersCollection.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email already exists' });
+    }
+
+    // Create admin account (pre-verified)
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      name,
+      isAdmin: true,
+      isVerified: true, // Pre-verified, no email needed
+      createdAt: new Date()
+    };
+    
+    await usersCollection.insertOne(newUser);
+
+    res.json({ 
+      success: true, 
+      message: `Admin account created for ${email}`,
+      user: { email: newUser.email, name: newUser.name, isAdmin: true }
+    });
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Toggle admin status for existing user
+app.post('/api/admin/toggle-admin/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Don't allow toggling yourself
+    if (user.email === req.user.email) {
+      return res.status(400).json({ error: 'Cannot change your own admin status' });
+    }
+
+    // Toggle admin status
+    const newAdminStatus = !user.isAdmin;
+    
+    // If making them an admin, also verify them
+    const updateFields = { isAdmin: newAdminStatus };
+    if (newAdminStatus) {
+      updateFields.isVerified = true;
+    }
+
+    await usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: updateFields }
+    );
+
+    res.json({ 
+      success: true, 
+      isAdmin: newAdminStatus,
+      message: newAdminStatus ? 'User is now an admin' : 'Admin status removed'
+    });
+  } catch (error) {
+    console.error('Toggle admin error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ============ GEMINI API INTEGRATION ============
 
 async function gradeCardWithGemini(frontBase64, backBase64) {

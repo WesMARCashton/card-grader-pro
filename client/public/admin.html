@@ -614,6 +614,7 @@
       <div class="tabs">
         <button class="tab active" onclick="showTab('users')">👥 Users</button>
         <button class="tab" onclick="showTab('cards')">🎴 All Cards</button>
+        <button class="tab" onclick="showTab('admins')">🛡️ Admins</button>
       </div>
 
       <!-- Users Table -->
@@ -652,6 +653,48 @@
           <tbody id="cards-table-body">
           </tbody>
         </table>
+      </div>
+
+      <!-- Admins Tab -->
+      <div id="admins-tab" class="hidden">
+        <!-- Create Admin Form -->
+        <div class="create-admin-form" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+          <h3 style="margin-bottom: 16px; font-size: 16px;">➕ Create New Admin Account</h3>
+          <p style="color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 16px;">Admin accounts can access this panel, view all users/cards, and grade their own cards. No email verification required.</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">NAME</label>
+              <input type="text" id="admin-name" class="form-input" placeholder="Admin name" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">EMAIL</label>
+              <input type="email" id="admin-email" class="form-input" placeholder="admin@email.com" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 4px;">PASSWORD</label>
+              <input type="text" id="admin-password" class="form-input" placeholder="Password" style="margin-bottom: 0;">
+            </div>
+            <button class="btn btn-primary" onclick="createAdmin()" style="height: 48px;">Create Admin</button>
+          </div>
+          <div id="admin-message" style="margin-top: 12px; display: none;"></div>
+        </div>
+
+        <!-- Admins List -->
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Cards Graded</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admins-table-body">
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -785,14 +828,19 @@
           <tr>
             <td><strong>${user.name}</strong></td>
             <td>${user.email}</td>
-            <td><span class="badge ${user.isAdmin ? 'badge-admin' : 'badge-user'}">${user.isAdmin ? 'ADMIN' : 'USER'}</span></td>
+            <td>
+              <span class="badge ${user.isAdmin ? 'badge-admin' : 'badge-user'}">${user.isAdmin ? 'ADMIN' : 'USER'}</span>
+            </td>
             <td><span class="badge" style="background: ${user.isVerified ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}; color: ${user.isVerified ? '#6ee7b7' : '#fbbf24'};">${user.isVerified ? 'VERIFIED' : 'PENDING'}</span></td>
             <td>
               ${user.cardCount > 0 ? `<a href="#" onclick="filterCardsByUser('${user.email}'); return false;" style="color: #a855f7; text-decoration: underline;">${user.cardCount}</a>` : '0'}
             </td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
-              ${user.isAdmin ? '-' : `<button class="btn btn-danger" onclick="deleteUser('${user._id}')">Delete</button>`}
+              ${user.isAdmin ? '-' : `
+                <button class="btn btn-secondary" onclick="makeAdmin('${user._id}')" style="margin-right: 8px;">Make Admin</button>
+                <button class="btn btn-danger" onclick="deleteUser('${user._id}')">Delete</button>
+              `}
             </td>
           </tr>
         `).join('');
@@ -879,11 +927,17 @@
 
       document.getElementById('users-tab').classList.add('hidden');
       document.getElementById('cards-tab').classList.add('hidden');
+      document.getElementById('admins-tab').classList.add('hidden');
       document.getElementById(`${tab}-tab`).classList.remove('hidden');
       
       // Clear filter when switching tabs
       if (tab === 'cards') {
         clearCardFilter();
+      }
+      
+      // Load admins when switching to admins tab
+      if (tab === 'admins') {
+        loadAdmins();
       }
     }
 
@@ -1099,6 +1153,143 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
     });
+
+    // ============ ADMIN MANAGEMENT ============
+
+    async function createAdmin() {
+      const name = document.getElementById('admin-name').value.trim();
+      const email = document.getElementById('admin-email').value.trim();
+      const password = document.getElementById('admin-password').value;
+      const messageEl = document.getElementById('admin-message');
+
+      if (!name || !email || !password) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Please fill in all fields';
+        return;
+      }
+
+      if (password.length < 6) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Password must be at least 6 characters';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/create-admin', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          messageEl.style.display = 'block';
+          messageEl.style.color = '#6ee7b7';
+          messageEl.textContent = `✓ Admin account created for ${email}`;
+          
+          // Clear form
+          document.getElementById('admin-name').value = '';
+          document.getElementById('admin-email').value = '';
+          document.getElementById('admin-password').value = '';
+          
+          // Reload admins list
+          loadAdmins();
+          loadStats();
+        } else {
+          messageEl.style.display = 'block';
+          messageEl.style.color = '#fca5a5';
+          messageEl.textContent = data.error || 'Failed to create admin';
+        }
+      } catch (e) {
+        messageEl.style.display = 'block';
+        messageEl.style.color = '#fca5a5';
+        messageEl.textContent = 'Connection error';
+      }
+    }
+
+    async function loadAdmins() {
+      try {
+        const res = await fetch('/api/admin/users', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const users = await res.json();
+        
+        // Filter to only admins
+        const admins = users.filter(u => u.isAdmin);
+
+        const tbody = document.getElementById('admins-table-body');
+        
+        if (admins.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">No admins yet. Create one above!</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = admins.map(user => `
+          <tr>
+            <td><strong>${user.name}</strong></td>
+            <td>${user.email}</td>
+            <td style="font-family: 'JetBrains Mono'; color: #a855f7;">${user.cardCount || 0}</td>
+            <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+            <td>
+              <button class="btn btn-secondary" onclick="filterCardsByUser('${user.email}')" style="margin-right: 8px;">View Cards</button>
+              <button class="btn btn-danger" onclick="removeAdminStatus('${user._id}')">Remove Admin</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.error('Failed to load admins:', e);
+      }
+    }
+
+    async function removeAdminStatus(userId) {
+      if (!confirm('Remove admin status from this user? They will become a regular user and lose access to this panel.')) return;
+
+      try {
+        const res = await fetch(`/api/admin/toggle-admin/${userId}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          loadAdmins();
+          loadUsers();
+        } else {
+          alert(data.error || 'Failed to update admin status');
+        }
+      } catch (e) {
+        alert('Error updating admin status');
+      }
+    }
+
+    async function makeAdmin(userId) {
+      if (!confirm('Make this user an admin? They will be able to access this admin panel and see all users/cards.')) return;
+      
+      try {
+        const res = await fetch(`/api/admin/toggle-admin/${userId}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          loadUsers();
+          loadAdmins();
+          alert('User is now an admin!');
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Failed to update admin status');
+        }
+      } catch (e) {
+        alert('Error updating admin status');
+      }
+    }
 
     // Enter key for login
     document.getElementById('login-password').addEventListener('keypress', (e) => {
