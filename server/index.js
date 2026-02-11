@@ -5,9 +5,62 @@ const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://wesashton:194MainSt@cluster0.b0jmyzi.mongodb.net/cardgrader?retryWrites=true&w=majority';
+let db;
+let usersCollection;
+let cardsCollection;
+
+async function connectToMongoDB() {
+  try {
+    const client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    db = client.db('cardgrader');
+    usersCollection = db.collection('users');
+    cardsCollection = db.collection('cards');
+    
+    // Create indexes
+    await usersCollection.createIndex({ email: 1 }, { unique: true });
+    await cardsCollection.createIndex({ userEmail: 1 });
+    
+    console.log('✅ Connected to MongoDB');
+    
+    // Create admin user if doesn't exist
+    const adminExists = await usersCollection.findOne({ email: 'admin@cardgrader.com' });
+    if (!adminExists) {
+      await usersCollection.insertOne({
+        email: 'admin@cardgrader.com',
+        password: await bcrypt.hash('admin123', 10),
+        name: 'Admin',
+        isAdmin: true,
+        createdAt: new Date()
+      });
+      console.log('✅ Admin user created: admin@cardgrader.com / admin123');
+    }
+    
+    // Create demo user if doesn't exist
+    const demoExists = await usersCollection.findOne({ email: 'demo@cardgrader.com' });
+    if (!demoExists) {
+      await usersCollection.insertOne({
+        email: 'demo@cardgrader.com',
+        password: await bcrypt.hash('demo123', 10),
+        name: 'Demo User',
+        isAdmin: false,
+        createdAt: new Date()
+      });
+      console.log('✅ Demo user created: demo@cardgrader.com / demo123');
+    }
+    
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -19,19 +72,7 @@ app.use(express.static(path.join(__dirname, '../client/public')));
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
-
-// In-memory user storage (use a database in production)
-const users = new Map();
-
-// Add demo user
-users.set('demo@cardgrader.com', {
-  email: 'demo@cardgrader.com',
-  password: bcrypt.hashSync('demo123', 10),
-  name: 'Demo User',
-  gradingHistory: [],
-  collection: []
+  limits: { fileSize: 10 * 1024 * 1024 }
 });
 
 // JWT Middleware
@@ -43,7 +84,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'cardgrader-secret-key-2024', (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
@@ -52,7 +93,21 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Auth Routes
+// Admin Middleware
+const requireAdmin = async (req, res, next) => {
+  try {
+    const user = await usersCollection.findOne({ email: req.user.email });
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// ============ AUTH ROUTES ============
+
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -65,22 +120,31 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    if (users.has(email)) {
+    // Check if user exists
+    const existingUser = await usersCollection.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
       return res.status(400).json({ error: 'An account with this email already exists' });
     }
 
+    // Create user
     const hashedPassword = await bcrypt.hash(password, 10);
-    users.set(email, {
-      email,
+    const newUser = {
+      email: email.toLowerCase(),
       password: hashedPassword,
       name,
-      gradingHistory: [],
-      collection: []
-    });
+      isAdmin: false,
+      createdAt: new Date()
+    };
+    
+    await usersCollection.insertOne(newUser);
 
-    const token = jwt.sign({ email, name }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { email: newUser.email, name: newUser.name },
+      process.env.JWT_SECRET || 'cardgrader-secret-key-2024',
+      { expiresIn: '7d' }
+    );
 
-    res.json({ token, user: { email, name } });
+    res.json({ token, user: { email: newUser.email, name: newUser.name } });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -95,7 +159,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = users.get(email);
+    const user = await usersCollection.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -105,24 +169,36 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ email, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { email: user.email, name: user.name, isAdmin: user.isAdmin },
+      process.env.JWT_SECRET || 'cardgrader-secret-key-2024',
+      { expiresIn: '7d' }
+    );
 
-    res.json({ token, user: { email, name: user.name } });
+    res.json({ 
+      token, 
+      user: { email: user.email, name: user.name, isAdmin: user.isAdmin } 
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.get('/api/auth/me', authenticateToken, (req, res) => {
-  const user = users.get(req.user.email);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await usersCollection.findOne({ email: req.user.email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ email: user.email, name: user.name, isAdmin: user.isAdmin });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
   }
-  res.json({ email: user.email, name: user.name });
 });
 
-// Card Grading Route
+// ============ CARD GRADING ROUTE ============
+
 app.post('/api/grade', authenticateToken, upload.fields([
   { name: 'frontImage', maxCount: 1 },
   { name: 'backImage', maxCount: 1 }
@@ -141,21 +217,9 @@ app.post('/api/grade', authenticateToken, upload.fields([
     // Call Gemini API
     const result = await gradeCardWithGemini(frontBase64, backBase64);
     
-    // Add image data to result for saving to collection
+    // Add image data to result
     result.frontImage = frontBase64;
     result.backImage = backBase64;
-    
-    // Save to user's history
-    const user = users.get(req.user.email);
-    if (user) {
-      user.gradingHistory.unshift({
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        result
-      });
-      // Keep only last 20 gradings
-      user.gradingHistory = user.gradingHistory.slice(0, 20);
-    }
 
     res.json(result);
   } catch (error) {
@@ -164,19 +228,9 @@ app.post('/api/grade', authenticateToken, upload.fields([
   }
 });
 
-// Get grading history
-app.get('/api/history', authenticateToken, (req, res) => {
-  const user = users.get(req.user.email);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-  res.json(user.gradingHistory || []);
-});
-
 // ============ COLLECTION ROUTES ============
 
-// Save card to collection
-app.post('/api/collection', authenticateToken, (req, res) => {
+app.post('/api/collection', authenticateToken, async (req, res) => {
   try {
     const { card } = req.body;
     
@@ -184,24 +238,15 @@ app.post('/api/collection', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Card data is required' });
     }
 
-    const user = users.get(req.user.email);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Initialize collection if it doesn't exist
-    if (!user.collection) {
-      user.collection = [];
-    }
-
-    // Add card with unique ID and timestamp
     const savedCard = {
-      id: Date.now(),
-      savedAt: new Date().toISOString(),
+      userEmail: req.user.email,
+      userName: req.user.name,
+      savedAt: new Date(),
       ...card
     };
 
-    user.collection.unshift(savedCard);
+    const result = await cardsCollection.insertOne(savedCard);
+    savedCard._id = result.insertedId;
 
     res.json({ success: true, card: savedCard });
   } catch (error) {
@@ -210,35 +255,39 @@ app.post('/api/collection', authenticateToken, (req, res) => {
   }
 });
 
-// Get user's collection
-app.get('/api/collection', authenticateToken, (req, res) => {
-  const user = users.get(req.user.email);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+app.get('/api/collection', authenticateToken, async (req, res) => {
+  try {
+    const cards = await cardsCollection
+      .find({ userEmail: req.user.email })
+      .sort({ savedAt: -1 })
+      .toArray();
+    
+    // Transform _id to id for frontend compatibility
+    const transformedCards = cards.map(card => ({
+      ...card,
+      id: card._id.toString()
+    }));
+    
+    res.json(transformedCards);
+  } catch (error) {
+    console.error('Get collection error:', error);
+    res.status(500).json({ error: 'Failed to get collection' });
   }
-  res.json(user.collection || []);
 });
 
-// Delete card from collection
-app.delete('/api/collection/:id', authenticateToken, (req, res) => {
+app.delete('/api/collection/:id', authenticateToken, async (req, res) => {
   try {
-    const cardId = parseInt(req.params.id);
-    const user = users.get(req.user.email);
+    const cardId = req.params.id;
     
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const result = await cardsCollection.deleteOne({
+      _id: new ObjectId(cardId),
+      userEmail: req.user.email
+    });
 
-    if (!user.collection) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Card not found' });
     }
 
-    const index = user.collection.findIndex(card => card.id === cardId);
-    if (index === -1) {
-      return res.status(404).json({ error: 'Card not found' });
-    }
-
-    user.collection.splice(index, 1);
     res.json({ success: true });
   } catch (error) {
     console.error('Delete from collection error:', error);
@@ -246,9 +295,139 @@ app.delete('/api/collection/:id', authenticateToken, (req, res) => {
   }
 });
 
-// ============ END COLLECTION ROUTES ============
+// ============ ADMIN ROUTES ============
 
-// Gemini API Integration
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const totalUsers = await usersCollection.countDocuments();
+    const totalCards = await cardsCollection.countDocuments();
+    
+    // Users created in last 7 days
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const newUsersThisWeek = await usersCollection.countDocuments({
+      createdAt: { $gte: weekAgo }
+    });
+    
+    // Cards graded in last 7 days
+    const cardsThisWeek = await cardsCollection.countDocuments({
+      savedAt: { $gte: weekAgo }
+    });
+    
+    // Average grade
+    const gradeStats = await cardsCollection.aggregate([
+      { $group: { _id: null, avgGrade: { $avg: '$overallGrade' } } }
+    ]).toArray();
+    const avgGrade = gradeStats[0]?.avgGrade?.toFixed(1) || 0;
+    
+    // Top users by card count
+    const topUsers = await cardsCollection.aggregate([
+      { $group: { _id: '$userEmail', count: { $sum: 1 }, name: { $first: '$userName' } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]).toArray();
+
+    res.json({
+      totalUsers,
+      totalCards,
+      newUsersThisWeek,
+      cardsThisWeek,
+      avgGrade,
+      topUsers
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await usersCollection
+      .find({}, { projection: { password: 0 } })
+      .sort({ createdAt: -1 })
+      .toArray();
+    
+    // Get card count for each user
+    const usersWithCardCount = await Promise.all(users.map(async (user) => {
+      const cardCount = await cardsCollection.countDocuments({ userEmail: user.email });
+      return { ...user, cardCount };
+    }));
+    
+    res.json(usersWithCardCount);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Get user email first
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Don't allow deleting admin
+    if (user.isAdmin) {
+      return res.status(400).json({ error: 'Cannot delete admin user' });
+    }
+    
+    // Delete user's cards
+    await cardsCollection.deleteMany({ userEmail: user.email });
+    
+    // Delete user
+    await usersCollection.deleteOne({ _id: new ObjectId(userId) });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const cards = await cardsCollection
+      .find({})
+      .sort({ savedAt: -1 })
+      .limit(100)
+      .toArray();
+    
+    const transformedCards = cards.map(card => ({
+      ...card,
+      id: card._id.toString()
+    }));
+    
+    res.json(transformedCards);
+  } catch (error) {
+    console.error('Get all cards error:', error);
+    res.status(500).json({ error: 'Failed to get cards' });
+  }
+});
+
+app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const cardId = req.params.id;
+    
+    const result = await cardsCollection.deleteOne({ _id: new ObjectId(cardId) });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin delete card error:', error);
+    res.status(500).json({ error: 'Failed to delete card' });
+  }
+});
+
+// ============ GEMINI API INTEGRATION ============
+
 async function gradeCardWithGemini(frontBase64, backBase64) {
   const systemPrompt = `You are an expert collectible card grader with decades of experience grading sports cards (NHL, NFL, NBA, MLB) and trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.). You grade cards following PSA (Professional Sports Authenticator) standards meticulously.
 
@@ -355,7 +534,6 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-  // Parse JSON from response
   let jsonText = text;
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
@@ -370,11 +548,19 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   return JSON.parse(jsonMatch[0]);
 }
 
+// Serve admin page
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/admin.html'));
+});
+
 // Serve the frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/public/index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🎴 CardGrade Pro server running on http://localhost:${PORT}`);
+// Start server
+connectToMongoDB().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🎴 CardGrade Pro server running on http://localhost:${PORT}`);
+  });
 });

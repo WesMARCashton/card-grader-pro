@@ -1268,26 +1268,21 @@
       return str ? str.toUpperCase() : '';
     }
 
-    function getCollectionKey() {
-      return `cardgrader_collection_${currentUser?.email || 'guest'}`;
-    }
-
-    function loadCollectionFromStorage() {
+    async function loadCollectionFromServer() {
       try {
-        const saved = localStorage.getItem(getCollectionKey());
-        collection = saved ? JSON.parse(saved) : [];
+        const res = await fetch('/api/collection', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          collection = await res.json();
+        } else {
+          collection = [];
+        }
       } catch (e) {
+        console.error('Failed to load collection:', e);
         collection = [];
       }
       updateCollectionCount();
-    }
-
-    function saveCollectionToStorage() {
-      try {
-        localStorage.setItem(getCollectionKey(), JSON.stringify(collection));
-      } catch (e) {
-        console.error('Failed to save collection:', e);
-      }
     }
 
     function showError(el, message) {
@@ -1303,7 +1298,7 @@
       authScreen.classList.add('hidden');
       appScreen.classList.remove('hidden');
       document.getElementById('user-name').textContent = currentUser?.name || '';
-      loadCollectionFromStorage();
+      loadCollectionFromServer();
     }
 
     function showAuth() {
@@ -1427,44 +1422,81 @@
             </div>
           </div>
           <div class="collection-card-actions">
-            <button class="btn-view" onclick="viewCard(${card.id})">View</button>
-            <button class="btn-delete" onclick="deleteCard(${card.id}, event)">Delete</button>
+            <button class="btn-view" onclick="viewCard('${card.id}')">View</button>
+            <button class="btn-delete" onclick="deleteCard('${card.id}', event)">Delete</button>
           </div>
         </div>
       `).join('');
     }
 
-    function saveToCollection() {
+    async function saveToCollection() {
       if (!currentGradingResult) return;
 
       const saveBtn = document.getElementById('save-btn');
       const saveMessage = document.getElementById('save-message');
 
-      const savedCard = {
-        id: Date.now(),
-        savedAt: new Date().toISOString(),
-        manuallyAdjusted: isManuallyAdjusted,
-        ...currentGradingResult
-      };
-
-      collection.unshift(savedCard);
-      saveCollectionToStorage();
-      updateCollectionCount();
-      
-      saveMessage.classList.remove('hidden');
-      saveBtn.textContent = '✓ Saved!';
       saveBtn.disabled = true;
-      saveBtn.classList.remove('btn-success');
-      saveBtn.classList.add('btn-secondary');
+      saveBtn.textContent = 'Saving...';
+
+      try {
+        const cardToSave = {
+          manuallyAdjusted: isManuallyAdjusted,
+          ...currentGradingResult
+        };
+
+        const res = await fetch('/api/collection', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ card: cardToSave })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          collection.unshift(data.card);
+          updateCollectionCount();
+          
+          saveMessage.classList.remove('hidden');
+          saveBtn.textContent = '✓ Saved!';
+          saveBtn.classList.remove('btn-success');
+          saveBtn.classList.add('btn-secondary');
+        } else {
+          const error = await res.json();
+          alert(error.error || 'Failed to save card');
+          saveBtn.disabled = false;
+          saveBtn.textContent = '💾 Save to Collection';
+        }
+      } catch (e) {
+        console.error('Save error:', e);
+        alert('Failed to save card');
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save to Collection';
+      }
     }
 
-    function deleteCard(id, event) {
+    async function deleteCard(id, event) {
       event.stopPropagation();
       if (!confirm('Are you sure you want to delete this card from your collection?')) return;
-      collection = collection.filter(c => c.id !== id);
-      saveCollectionToStorage();
-      updateCollectionCount();
-      renderCollection();
+
+      try {
+        const res = await fetch(`/api/collection/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          collection = collection.filter(c => c.id !== id);
+          updateCollectionCount();
+          renderCollection();
+        } else {
+          alert('Failed to delete card');
+        }
+      } catch (e) {
+        console.error('Delete error:', e);
+        alert('Failed to delete card');
+      }
     }
 
     function viewCard(id) {
