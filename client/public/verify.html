@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Email - CardGrade Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 40px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 40px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .status {
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+
+    .status.loading {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .status.success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status.success .icon {
+      color: #10b981;
+    }
+
+    .status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status.error .icon {
+      color: #ef4444;
+    }
+
+    .status .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .status h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .status p {
+      margin-bottom: 0;
+      font-size: 14px;
+    }
+
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px rgba(168,85,247,0.4);
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: #a855f7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🎴</div>
+    <h1>CardGrade Pro</h1>
+    <p>Email Verification</p>
+
+    <div id="loading-status" class="status loading">
+      <div class="spinner"></div>
+      <h2>Verifying your email...</h2>
+      <p>Please wait a moment</p>
+    </div>
+
+    <div id="success-status" class="status success hidden">
+      <div class="icon">✓</div>
+      <h2>Email Verified!</h2>
+      <p>Your account has been verified successfully. You can now sign in to your account.</p>
+    </div>
+
+    <div id="error-status" class="status error hidden">
+      <div class="icon">✕</div>
+      <h2>Verification Failed</h2>
+      <p id="error-message">The verification link is invalid or has expired.</p>
+    </div>
+
+    <a href="/" class="btn" id="action-btn" style="display: none;">Go to Sign In</a>
+  </div>
+
+  <script>
+    async function verifyEmail() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+
+      const loadingStatus = document.getElementById('loading-status');
+      const successStatus = document.getElementById('success-status');
+      const errorStatus = document.getElementById('error-status');
+      const errorMessage = document.getElementById('error-message');
+      const actionBtn = document.getElementById('action-btn');
+
+      if (!token) {
+        loadingStatus.classList.add('hidden');
+        errorStatus.classList.remove('hidden');
+        errorMessage.textContent = 'No verification token provided.';
+        actionBtn.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/verify?token=${token}`);
+        const data = await res.json();
+
+        loadingStatus.classList.add('hidden');
+
+        if (res.ok) {
+          successStatus.classList.remove('hidden');
+          actionBtn.style.display = 'block';
+          actionBtn.textContent = 'Sign In Now';
+        } else {
+          errorStatus.classList.remove('hidden');
+          errorMessage.textContent = data.error || 'Verification failed. Please try again.';
+          actionBtn.style.display = 'block';
+        }
+      } catch (error) {
+        loadingStatus.classList.add('hidden');
+        errorStatus.classList.remove('hidden');
+        errorMessage.textContent = 'Connection error. Please try again.';
+        actionBtn.style.display = 'block';
+      }
+    }
+
+    verifyEmail();
+  </script>
+</body>
+</html>

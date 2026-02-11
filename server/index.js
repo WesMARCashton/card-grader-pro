@@ -4,6 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 
@@ -12,6 +13,8 @@ const PORT = process.env.PORT || 3000;
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const APP_URL = process.env.APP_URL || 'https://card-grader-pro-production.up.railway.app';
 
 if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI environment variable is required');
@@ -32,6 +35,7 @@ async function connectToMongoDB() {
     
     // Create indexes
     await usersCollection.createIndex({ email: 1 }, { unique: true });
+    await usersCollection.createIndex({ verificationToken: 1 });
     await cardsCollection.createIndex({ userEmail: 1 });
     
     console.log('✅ Connected to MongoDB');
@@ -44,6 +48,7 @@ async function connectToMongoDB() {
         password: await bcrypt.hash('admin123', 10),
         name: 'Admin',
         isAdmin: true,
+        isVerified: true,
         createdAt: new Date()
       });
       console.log('✅ Admin user created: admin@cardgrader.com / admin123');
@@ -57,6 +62,7 @@ async function connectToMongoDB() {
         password: await bcrypt.hash('demo123', 10),
         name: 'Demo User',
         isAdmin: false,
+        isVerified: true,
         createdAt: new Date()
       });
       console.log('✅ Demo user created: demo@cardgrader.com / demo123');
@@ -65,6 +71,95 @@ async function connectToMongoDB() {
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
+  }
+}
+
+// Send verification email using Resend
+async function sendVerificationEmail(email, name, token) {
+  if (!RESEND_API_KEY) {
+    console.log('⚠️ RESEND_API_KEY not set, skipping email verification');
+    return false;
+  }
+
+  const verificationUrl = `${APP_URL}/verify?token=${token}`;
+  
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'CardGrade Pro <onboarding@resend.dev>',
+        to: email,
+        subject: 'Verify your CardGrade Pro account',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; padding: 20px 0; }
+              .logo { font-size: 48px; }
+              h1 { color: #7c3aed; margin: 0; }
+              .button { 
+                display: inline-block; 
+                background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+                color: white !important; 
+                padding: 14px 32px; 
+                text-decoration: none; 
+                border-radius: 8px;
+                font-weight: bold;
+                margin: 20px 0;
+              }
+              .footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="logo">🎴</div>
+                <h1>CardGrade Pro</h1>
+              </div>
+              
+              <p>Hi ${name},</p>
+              
+              <p>Welcome to CardGrade Pro! Please verify your email address to complete your registration and start grading cards.</p>
+              
+              <p style="text-align: center;">
+                <a href="${verificationUrl}" class="button">Verify Email Address</a>
+              </p>
+              
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; color: #7c3aed;">${verificationUrl}</p>
+              
+              <p>This link will expire in 24 hours.</p>
+              
+              <div class="footer">
+                <p>If you didn't create an account with CardGrade Pro, you can safely ignore this email.</p>
+                <p>© 2024 CardGrade Pro. AI-Powered Card Grading.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ Verification email sent to:', email);
+      return true;
+    } else {
+      console.error('❌ Failed to send email:', data);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Email send error:', error);
+    return false;
   }
 }
 
@@ -132,6 +227,10 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'An account with this email already exists' });
     }
 
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     // Create user
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = {
@@ -139,20 +238,116 @@ app.post('/api/auth/signup', async (req, res) => {
       password: hashedPassword,
       name,
       isAdmin: false,
+      isVerified: false,
+      verificationToken,
+      verificationTokenExpiry: tokenExpiry,
       createdAt: new Date()
     };
     
     await usersCollection.insertOne(newUser);
 
-    const token = jwt.sign(
-      { email: newUser.email, name: newUser.name },
-      process.env.JWT_SECRET || 'cardgrader-secret-key-2024',
-      { expiresIn: '7d' }
-    );
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email.toLowerCase(), name, verificationToken);
 
-    res.json({ token, user: { email: newUser.email, name: newUser.name } });
+    if (emailSent) {
+      res.json({ 
+        success: true, 
+        message: 'Account created! Please check your email to verify your account.',
+        requiresVerification: true
+      });
+    } else {
+      // If email fails, still create account but mark as verified (fallback)
+      await usersCollection.updateOne(
+        { email: email.toLowerCase() },
+        { $set: { isVerified: true } }
+      );
+      
+      const token = jwt.sign(
+        { email: newUser.email, name: newUser.name },
+        process.env.JWT_SECRET || 'cardgrader-secret-key-2024',
+        { expiresIn: '7d' }
+      );
+      
+      res.json({ token, user: { email: newUser.email, name: newUser.name } });
+    }
   } catch (error) {
     console.error('Signup error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Email verification endpoint
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+
+    const user = await usersCollection.findOne({ 
+      verificationToken: token,
+      verificationTokenExpiry: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired verification link' });
+    }
+
+    // Mark user as verified
+    await usersCollection.updateOne(
+      { _id: user._id },
+      { 
+        $set: { isVerified: true },
+        $unset: { verificationToken: '', verificationTokenExpiry: '' }
+      }
+    );
+
+    res.json({ success: true, message: 'Email verified successfully! You can now sign in.' });
+  } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Resend verification email
+app.post('/api/auth/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await usersCollection.findOne({ email: email.toLowerCase() });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ error: 'This account is already verified' });
+    }
+
+    // Generate new token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await usersCollection.updateOne(
+      { _id: user._id },
+      { 
+        $set: { 
+          verificationToken,
+          verificationTokenExpiry: tokenExpiry
+        }
+      }
+    );
+
+    const emailSent = await sendVerificationEmail(user.email, user.name, verificationToken);
+
+    if (emailSent) {
+      res.json({ success: true, message: 'Verification email sent! Please check your inbox.' });
+    } else {
+      res.status(500).json({ error: 'Failed to send verification email. Please try again.' });
+    }
+  } catch (error) {
+    console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -173,6 +368,15 @@ app.post('/api/auth/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if email is verified
+    if (!user.isVerified) {
+      return res.status(403).json({ 
+        error: 'Please verify your email before signing in',
+        requiresVerification: true,
+        email: user.email
+      });
     }
 
     const token = jwt.sign(
@@ -201,6 +405,11 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Verification page redirect
+app.get('/verify', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/public/verify.html'));
 });
 
 // ============ CARD GRADING ROUTE ============
@@ -306,6 +515,7 @@ app.delete('/api/collection/:id', authenticateToken, async (req, res) => {
 app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const totalUsers = await usersCollection.countDocuments();
+    const verifiedUsers = await usersCollection.countDocuments({ isVerified: true });
     const totalCards = await cardsCollection.countDocuments();
     
     // Users created in last 7 days
@@ -335,6 +545,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
 
     res.json({
       totalUsers,
+      verifiedUsers,
       totalCards,
       newUsersThisWeek,
       cardsThisWeek,
@@ -350,7 +561,7 @@ app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) =>
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await usersCollection
-      .find({}, { projection: { password: 0 } })
+      .find({}, { projection: { password: 0, verificationToken: 0 } })
       .sort({ createdAt: -1 })
       .toArray();
     

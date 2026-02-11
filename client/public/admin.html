@@ -429,6 +429,7 @@
               <th>Name</th>
               <th>Email</th>
               <th>Role</th>
+              <th>Status</th>
               <th>Cards</th>
               <th>Joined</th>
               <th>Actions</th>
@@ -579,6 +580,7 @@
             <td><strong>${user.name}</strong></td>
             <td>${user.email}</td>
             <td><span class="badge ${user.isAdmin ? 'badge-admin' : 'badge-user'}">${user.isAdmin ? 'ADMIN' : 'USER'}</span></td>
+            <td><span class="badge" style="background: ${user.isVerified ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}; color: ${user.isVerified ? '#6ee7b7' : '#fbbf24'};">${user.isVerified ? 'VERIFIED' : 'PENDING'}</span></td>
             <td>${user.cardCount || 0}</td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>

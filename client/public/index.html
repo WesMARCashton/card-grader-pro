@@ -1345,6 +1345,9 @@
           currentUser = data.user;
           localStorage.setItem('token', token);
           showApp();
+        } else if (data.requiresVerification) {
+          // User needs to verify email
+          showVerificationMessage(data.email);
         } else {
           showError(authError, data.error || 'Login failed');
         }
@@ -1366,16 +1369,79 @@
         });
         const data = await res.json();
         if (res.ok) {
-          token = data.token;
-          currentUser = data.user;
-          localStorage.setItem('token', token);
-          showApp();
+          if (data.requiresVerification) {
+            // Show verification message
+            showVerificationMessage(email);
+          } else {
+            token = data.token;
+            currentUser = data.user;
+            localStorage.setItem('token', token);
+            showApp();
+          }
         } else {
           showError(authError, data.error || 'Signup failed');
         }
       } catch (e) {
         showError(authError, 'Connection error. Please try again.');
       }
+    }
+
+    function showVerificationMessage(email) {
+      loginForm.classList.add('hidden');
+      signupForm.classList.add('hidden');
+      
+      // Create verification message UI
+      let verifyDiv = document.getElementById('verify-message');
+      if (!verifyDiv) {
+        verifyDiv = document.createElement('div');
+        verifyDiv.id = 'verify-message';
+        document.querySelector('.auth-card').appendChild(verifyDiv);
+      }
+      
+      verifyDiv.innerHTML = `
+        <div style="text-align: center; padding: 20px 0;">
+          <div style="font-size: 64px; margin-bottom: 16px;">📧</div>
+          <h2 style="margin-bottom: 12px; font-size: 20px;">Check Your Email!</h2>
+          <p style="color: rgba(255,255,255,0.6); margin-bottom: 24px; line-height: 1.6;">
+            We've sent a verification link to:<br>
+            <strong style="color: #a855f7;">${email}</strong>
+          </p>
+          <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin-bottom: 24px;">
+            Click the link in the email to verify your account and start grading cards!
+          </p>
+          <button onclick="resendVerification('${email}')" class="btn btn-secondary" style="margin-bottom: 12px;">
+            Resend Verification Email
+          </button>
+          <br>
+          <a href="#" onclick="backToLogin()" style="color: #a855f7; font-size: 14px;">← Back to Sign In</a>
+        </div>
+      `;
+      verifyDiv.classList.remove('hidden');
+    }
+
+    async function resendVerification(email) {
+      try {
+        const res = await fetch('/api/auth/resend-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Verification email sent! Please check your inbox.');
+        } else {
+          alert(data.error || 'Failed to resend email');
+        }
+      } catch (e) {
+        alert('Connection error. Please try again.');
+      }
+    }
+
+    function backToLogin() {
+      const verifyDiv = document.getElementById('verify-message');
+      if (verifyDiv) verifyDiv.classList.add('hidden');
+      loginForm.classList.remove('hidden');
+      signupForm.classList.add('hidden');
     }
 
     function showGradeView() {
