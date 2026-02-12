@@ -779,7 +779,9 @@ app.get('/api/settings', authenticateToken, async (req, res) => {
     
     res.json({
       googleSheetUrl: user.googleSheetUrl || '',
-      googleSheetId: user.googleSheetId || ''
+      googleSheetId: user.googleSheetId || '',
+      googleSheetTab: user.googleSheetTab || 'Grades',
+      googleSheetSecret: user.googleSheetSecret || 'myStrongSecretKey2025!'
     });
   } catch (error) {
     console.error('Get settings error:', error);
@@ -790,7 +792,7 @@ app.get('/api/settings', authenticateToken, async (req, res) => {
 // Update user settings
 app.post('/api/settings', authenticateToken, async (req, res) => {
   try {
-    const { googleSheetUrl } = req.body;
+    const { googleSheetUrl, googleSheetTab, googleSheetSecret } = req.body;
     
     // Extract sheet ID from URL if provided
     let googleSheetId = '';
@@ -803,7 +805,12 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
     
     await usersCollection.updateOne(
       { email: req.user.email },
-      { $set: { googleSheetUrl, googleSheetId } }
+      { $set: { 
+        googleSheetUrl, 
+        googleSheetId,
+        googleSheetTab: googleSheetTab || 'Grades',
+        googleSheetSecret: googleSheetSecret || 'myStrongSecretKey2025!'
+      }}
     );
     
     res.json({ success: true, googleSheetId });
@@ -824,11 +831,16 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Google Sheet URL not configured. Please set it in Settings.' });
     }
     
-    // Get the card
-    const card = await cardsCollection.findOne({ 
-      _id: new ObjectId(cardId),
-      userEmail: req.user.email
-    });
+    // Get the card - admins can sync any card, regular users only their own
+    let card;
+    if (user.isAdmin) {
+      card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
+    } else {
+      card = await cardsCollection.findOne({ 
+        _id: new ObjectId(cardId),
+        userEmail: req.user.email
+      });
+    }
     
     if (!card) {
       return res.status(404).json({ error: 'Card not found' });

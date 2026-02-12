@@ -708,66 +708,36 @@
           
           <div style="margin-bottom: 20px;">
             <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">GOOGLE APPS SCRIPT WEB APP URL</label>
-            <div style="display: flex; gap: 12px;">
-              <input type="text" id="sheet-url" class="form-input" placeholder="https://script.google.com/macros/s/..." style="flex: 1; margin-bottom: 0;">
-              <button class="btn btn-primary" onclick="saveSheetUrl()">Save</button>
-            </div>
-            <div id="sheet-url-message" style="margin-top: 8px; font-size: 13px; display: none;"></div>
+            <input type="text" id="sheet-url" class="form-input" placeholder="https://script.google.com/macros/s/..." style="margin-bottom: 12px;">
           </div>
 
-          <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px;">
-            <h4 style="font-size: 14px; margin-bottom: 12px;">📋 Setup Instructions</h4>
-            <ol style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.8; padding-left: 20px;">
-              <li>Open your Google Sheet</li>
-              <li>Go to <strong>Extensions → Apps Script</strong></li>
-              <li>Delete any existing code and paste the script below</li>
-              <li>Click <strong>Deploy → New deployment</strong></li>
-              <li>Select type: <strong>Web app</strong></li>
-              <li>Set "Who has access" to: <strong>Anyone</strong></li>
-              <li>Click <strong>Deploy</strong> and authorize when prompted</li>
-              <li>Copy the Web app URL and paste it above</li>
-            </ol>
-            
-            <div style="margin-top: 16px;">
-              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">APPS SCRIPT CODE (copy this):</label>
-              <div style="position: relative;">
-                <pre id="apps-script-code" style="background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 12px; font-size: 11px; overflow-x: auto; color: #a5f3fc; white-space: pre-wrap; word-break: break-all;">function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var data = JSON.parse(e.postData.contents);
-  
-  // Find next empty row
-  var lastRow = sheet.getLastRow();
-  var newRow = lastRow + 1;
-  
-  // Map data to columns A-X
-  sheet.getRange(newRow, 1).setValue(data.year);           // A - Year
-  sheet.getRange(newRow, 2).setValue(data.company);        // B - Company
-  sheet.getRange(newRow, 3).setValue(data.series);         // C - Series
-  sheet.getRange(newRow, 4).setValue(data.name);           // D - Name
-  sheet.getRange(newRow, 5).setValue(data.edition);        // E - Edition
-  sheet.getRange(newRow, 6).setValue(data.set);            // F - Set
-  sheet.getRange(newRow, 7).setValue(data.cardNumber);     // G - Card #
-  sheet.getRange(newRow, 8).setValue(data.mint);           // H - Mint
-  sheet.getRange(newRow, 9).setValue(data.finalGrade);     // I - Final Grade
-  // J & K left blank
-  sheet.getRange(newRow, 12).setValue(data.centeringGrade);    // L
-  sheet.getRange(newRow, 13).setValue(data.centeringNotes);    // M
-  sheet.getRange(newRow, 14).setValue(data.cornerGrade);       // N
-  sheet.getRange(newRow, 15).setValue(data.cornerNotes);       // O
-  sheet.getRange(newRow, 16).setValue(data.edgesGrade);        // P
-  sheet.getRange(newRow, 17).setValue(data.edgesNotes);        // Q
-  sheet.getRange(newRow, 18).setValue(data.surfaceGrade);      // R
-  sheet.getRange(newRow, 19).setValue(data.surfaceNotes);      // S
-  sheet.getRange(newRow, 20).setValue(data.printQualityGrade); // T
-  sheet.getRange(newRow, 21).setValue(data.printQualityNotes); // U
-  sheet.getRange(newRow, 22).setValue(data.summary);           // V
-  sheet.getRange(newRow, 23).setValue(data.frontImageUrl);     // W
-  sheet.getRange(newRow, 24).setValue(data.backImageUrl);      // X
-  
-  return ContentService.createTextOutput(JSON.stringify({success: true}))
-    .setMimeType(ContentService.MimeType.JSON);
-}</pre>
-                <button onclick="copyScript()" class="btn btn-secondary" style="position: absolute; top: 8px; right: 8px; padding: 6px 12px; font-size: 11px;">Copy</button>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">SHEET TAB NAME</label>
+              <input type="text" id="sheet-tab" class="form-input" placeholder="Grades" value="Grades" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 6px;">SECRET KEY (must match Apps Script)</label>
+              <input type="text" id="sheet-secret" class="form-input" placeholder="myStrongSecretKey2025!" value="myStrongSecretKey2025!" style="margin-bottom: 0;">
+            </div>
+          </div>
+
+          <button class="btn btn-primary" onclick="saveSheetSettings()" style="width: 100%;">💾 Save Settings</button>
+          <div id="sheet-url-message" style="margin-top: 12px; font-size: 13px; display: none;"></div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <h4 style="font-size: 14px; margin-bottom: 12px;">📋 Setup Instructions</h4>
+          <ol style="color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.8; padding-left: 20px;">
+            <li>Open your Google Sheet</li>
+            <li>Make sure your tab is named <strong>"Grades"</strong> (or change the name above)</li>
+            <li>Go to <strong>Extensions → Apps Script</strong></li>
+            <li>Paste the script (you already have it from NGA Card Grader)</li>
+            <li>Make sure the SHEET_NAME and SHARED_SECRET in the script match the values above</li>
+            <li>Click <strong>Deploy → Manage deployments → Edit → New version → Deploy</strong></li>
+            <li>Copy the Web app URL (starts with https://script.google.com/macros/s/...)</li>
+          </ol>
+        </div>
               </div>
             </div>
           </div>
@@ -1462,14 +1432,18 @@
         if (res.ok) {
           const settings = await res.json();
           document.getElementById('sheet-url').value = settings.googleSheetUrl || '';
+          document.getElementById('sheet-tab').value = settings.googleSheetTab || 'Grades';
+          document.getElementById('sheet-secret').value = settings.googleSheetSecret || 'myStrongSecretKey2025!';
         }
       } catch (e) {
         console.error('Failed to load settings:', e);
       }
     }
 
-    async function saveSheetUrl() {
+    async function saveSheetSettings() {
       const url = document.getElementById('sheet-url').value.trim();
+      const tab = document.getElementById('sheet-tab').value.trim() || 'Grades';
+      const secret = document.getElementById('sheet-secret').value.trim() || 'myStrongSecretKey2025!';
       const messageEl = document.getElementById('sheet-url-message');
       
       if (!url) {
@@ -1493,17 +1467,21 @@
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ googleSheetUrl: url })
+          body: JSON.stringify({ 
+            googleSheetUrl: url,
+            googleSheetTab: tab,
+            googleSheetSecret: secret
+          })
         });
 
         if (res.ok) {
           messageEl.style.display = 'block';
           messageEl.style.color = '#6ee7b7';
-          messageEl.textContent = '✓ Google Sheet URL saved successfully!';
+          messageEl.textContent = '✓ Settings saved successfully!';
         } else {
           messageEl.style.display = 'block';
           messageEl.style.color = '#fca5a5';
-          messageEl.textContent = 'Failed to save URL';
+          messageEl.textContent = 'Failed to save settings';
         }
       } catch (e) {
         messageEl.style.display = 'block';
@@ -1512,8 +1490,17 @@
       }
     }
 
+    // Keep old function name for backwards compatibility
+    async function saveSheetUrl() {
+      return saveSheetSettings();
+    }
+
     function copyScript() {
-      const code = document.getElementById('apps-script-code').textContent;
+      const code = document.getElementById('apps-script-code')?.textContent;
+      if (!code) {
+        alert('No script to copy');
+        return;
+      }
       navigator.clipboard.writeText(code).then(() => {
         alert('Script copied to clipboard!');
       }).catch(() => {
