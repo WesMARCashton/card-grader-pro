@@ -825,7 +825,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUuf4iRJX5aHSd
 
 app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
   try {
-    const { cardId } = req.body;
+    const { cardId, forceSync } = req.body;
     
     // Get user's settings
     const user = await usersCollection.findOne({ email: req.user.email });
@@ -846,6 +846,11 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
     
     if (!card) {
       return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    // Skip if already synced (unless forceSync is true)
+    if (card.syncedToSheet && !forceSync) {
+      return res.json({ success: true, message: 'Card already synced', skipped: true });
     }
     
     // Upload images to Firebase Storage (if not already uploaded)
@@ -883,6 +888,7 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
     
     const rowData = {
       secret: user.googleSheetSecret || 'myStrongSecretKey2025!', // Auth for Apps Script
+      sheet: user.googleSheetTab || 'Grades', // Which tab to write to
       year: toUpper(card.cardIdentification?.year || ''),           // A - capitalized
       company: toUpper(card.cardIdentification?.sport || ''),       // B - capitalized
       series: '',                                                    // C - empty
@@ -932,6 +938,124 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Sync to sheet error:', error);
     res.status(500).json({ error: error.message || 'Failed to sync to Google Sheet' });
+  }
+});
+
+// Sync all un-synced cards for a user
+app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userEmail } = req.body;
+    
+    // Get admin's settings (the admin doing the sync)
+    const admin = await usersCollection.findOne({ email: req.user.email });
+    if (!admin || !admin.googleSheetUrl) {
+      return res.status(400).json({ error: 'Google Sheet URL not configured. Please set it in Settings.' });
+    }
+    
+    // Get all un-synced cards for the specified user (or all users if no email provided)
+    const query = { syncedToSheet: { $ne: true } };
+    if (userEmail) {
+      query.userEmail = userEmail;
+    }
+    
+    const cards = await cardsCollection.find(query).toArray();
+    
+    if (cards.length === 0) {
+      return res.json({ success: true, message: 'No un-synced cards found', synced: 0, skipped: 0 });
+    }
+    
+    let synced = 0;
+    let failed = 0;
+    const toUpper = (str) => str ? String(str).toUpperCase() : '';
+    
+    for (const card of cards) {
+      try {
+        // Upload images if needed
+        let frontImageUrl = card.frontImageUrl || '';
+        let backImageUrl = card.backImageUrl || '';
+        
+        if (card.frontImage && !frontImageUrl) {
+          frontImageUrl = await uploadImageToFirebase(card.frontImage, card._id.toString(), 'front');
+          if (frontImageUrl) {
+            await cardsCollection.updateOne(
+              { _id: card._id },
+              { $set: { frontImageUrl } }
+            );
+          }
+        }
+        
+        if (card.backImage && !backImageUrl) {
+          backImageUrl = await uploadImageToFirebase(card.backImage, card._id.toString(), 'back');
+          if (backImageUrl) {
+            await cardsCollection.updateOne(
+              { _id: card._id },
+              { $set: { backImageUrl } }
+            );
+          }
+        }
+        
+        const rowData = {
+          secret: admin.googleSheetSecret || 'myStrongSecretKey2025!',
+          sheet: admin.googleSheetTab || 'Grades',
+          year: toUpper(card.cardIdentification?.year || ''),
+          company: toUpper(card.cardIdentification?.sport || ''),
+          series: '',
+          name: toUpper(card.cardIdentification?.playerOrCharacter || ''),
+          edition: '',
+          set: toUpper(card.cardIdentification?.cardSet || ''),
+          number: toUpper(card.cardIdentification?.cardNumber || ''),
+          grade: card.overallGrade,
+          mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''),
+          cert: '',
+          qr: '',
+          centering_grade: card.grades?.centering?.score || '',
+          centering_notes: card.grades?.centering?.notes || '',
+          corners_grade: card.grades?.corners?.score || '',
+          corners_notes: card.grades?.corners?.notes || '',
+          edges_grade: card.grades?.edges?.score || '',
+          edges_notes: card.grades?.edges?.notes || '',
+          surface_grade: card.grades?.surface?.score || '',
+          surface_notes: card.grades?.surface?.notes || '',
+          print_quality_grade: card.grades?.printQuality?.score || '',
+          print_quality_notes: card.grades?.printQuality?.notes || '',
+          summary: card.summary || '',
+          front_image_url: frontImageUrl || '',
+          back_image_url: backImageUrl || ''
+        };
+        
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rowData)
+        });
+        
+        const responseText = await response.text();
+        
+        if (!responseText.includes('ERROR') && !responseText.includes('Unauthorized')) {
+          await cardsCollection.updateOne(
+            { _id: card._id },
+            { $set: { syncedToSheet: true, syncedAt: new Date() } }
+          );
+          synced++;
+        } else {
+          failed++;
+        }
+      } catch (e) {
+        console.error('Error syncing card:', card._id, e);
+        failed++;
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${synced} cards${failed > 0 ? `, ${failed} failed` : ''}`,
+      synced,
+      failed,
+      total: cards.length
+    });
+  } catch (error) {
+    console.error('Sync all error:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync cards' });
   }
 });
 

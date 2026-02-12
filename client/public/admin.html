@@ -893,18 +893,18 @@
 
         const tbody = document.getElementById('users-table-body');
         tbody.innerHTML = users.map(user => `
-          <tr>
+          <tr style="cursor: pointer;" onclick="viewUserCollection('${user.email}', '${user.name}')">
             <td><strong>${user.name}</strong></td>
             <td>${user.email}</td>
             <td>
               <span class="badge ${user.isAdmin ? 'badge-admin' : 'badge-user'}">${user.isAdmin ? 'ADMIN' : 'USER'}</span>
             </td>
             <td><span class="badge" style="background: ${user.isVerified ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}; color: ${user.isVerified ? '#6ee7b7' : '#fbbf24'};">${user.isVerified ? 'VERIFIED' : 'PENDING'}</span></td>
-            <td>
-              ${user.cardCount > 0 ? `<a href="#" onclick="filterCardsByUser('${user.email}'); return false;" style="color: #a855f7; text-decoration: underline;">${user.cardCount}</a>` : '0'}
+            <td style="color: #a855f7; font-weight: 500;">
+              ${user.cardCount || 0}
             </td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
-            <td>
+            <td onclick="event.stopPropagation();">
               ${user.isAdmin ? '-' : `
                 <button class="btn btn-secondary" onclick="makeAdmin('${user._id}')" style="margin-right: 8px;">Make Admin</button>
                 <button class="btn btn-danger" onclick="deleteUser('${user._id}')">Delete</button>
@@ -1016,37 +1016,107 @@
     }
 
     let currentFilterEmail = null;
+    let currentFilterName = null;
 
-    function filterCardsByUser(email) {
+    function viewUserCollection(email, name) {
       currentFilterEmail = email;
+      currentFilterName = name;
       showTab('cards');
       
-      // Show filter indicator
+      // Show filter indicator with user info and sync all button
       let filterIndicator = document.getElementById('filter-indicator');
       if (!filterIndicator) {
         filterIndicator = document.createElement('div');
         filterIndicator.id = 'filter-indicator';
-        filterIndicator.style.cssText = 'background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;';
+        filterIndicator.style.cssText = 'background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; padding: 16px; margin-bottom: 16px;';
         document.getElementById('cards-tab').insertBefore(filterIndicator, document.getElementById('cards-tab').firstChild);
       }
-      filterIndicator.innerHTML = `
-        <span>Showing cards for: <strong style="color: #a855f7;">${email}</strong></span>
-        <button class="btn btn-secondary" onclick="clearCardFilter()" style="padding: 6px 12px; font-size: 12px;">Clear Filter</button>
-      `;
-      filterIndicator.style.display = 'flex';
       
-      // Filter the cards
       const filteredCards = allCards.filter(c => c.userEmail === email);
+      const unsyncedCount = filteredCards.filter(c => !c.syncedToSheet).length;
+      const syncedCount = filteredCards.filter(c => c.syncedToSheet).length;
+      
+      filterIndicator.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <span style="font-size: 18px; font-weight: 600;">${name}'s Collection</span>
+            <span style="color: rgba(255,255,255,0.5); margin-left: 8px;">(${email})</span>
+          </div>
+          <button class="btn btn-secondary" onclick="clearCardFilter()" style="padding: 6px 12px; font-size: 12px;">← Back to All</button>
+        </div>
+        <div style="display: flex; gap: 16px; align-items: center;">
+          <div style="font-size: 13px;">
+            <span style="color: #6ee7b7;">✓ ${syncedCount} synced</span>
+            <span style="margin: 0 8px;">|</span>
+            <span style="color: ${unsyncedCount > 0 ? '#fbbf24' : 'rgba(255,255,255,0.4)'};">${unsyncedCount} un-synced</span>
+          </div>
+          ${unsyncedCount > 0 ? `
+            <button class="btn btn-primary" onclick="syncAllCards('${email}')" id="sync-all-btn" style="padding: 8px 16px;">
+              📊 Sync All (${unsyncedCount} cards)
+            </button>
+          ` : '<span style="color: #6ee7b7; font-size: 13px;">All cards synced!</span>'}
+        </div>
+      `;
+      filterIndicator.style.display = 'block';
+      
       renderFilteredCards(filteredCards);
+    }
+
+    function filterCardsByUser(email) {
+      viewUserCollection(email, email.split('@')[0]);
     }
 
     function clearCardFilter() {
       currentFilterEmail = null;
+      currentFilterName = null;
       const filterIndicator = document.getElementById('filter-indicator');
       if (filterIndicator) {
         filterIndicator.style.display = 'none';
       }
       renderFilteredCards(allCards);
+    }
+
+    async function syncAllCards(userEmail) {
+      const btn = document.getElementById('sync-all-btn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Syncing...';
+      }
+      
+      try {
+        const res = await fetch('/api/sync-all-to-sheet', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userEmail })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          alert(`✓ ${data.message}`);
+          // Reload cards to update synced status
+          await loadCards();
+          // Re-filter to show updated status
+          if (currentFilterEmail) {
+            viewUserCollection(currentFilterEmail, currentFilterName);
+          }
+        } else {
+          alert(data.error || 'Failed to sync cards');
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '📊 Sync All';
+          }
+        }
+      } catch (e) {
+        alert('Error syncing cards');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '📊 Sync All';
+        }
+      }
     }
 
     function renderFilteredCards(cards) {
@@ -1063,11 +1133,11 @@
           </td>
           <td>
             ${new Date(card.savedAt).toLocaleDateString()}
-            ${card.syncedToSheet ? '<span style="color: #6ee7b7; font-size: 10px; display: block;">✓ synced</span>' : ''}
+            ${card.syncedToSheet ? '<span style="color: #6ee7b7; font-size: 10px; display: block;">✓ synced</span>' : '<span style="color: #fbbf24; font-size: 10px; display: block;">⏳ pending</span>'}
           </td>
           <td>
             <button class="btn btn-secondary" onclick="event.stopPropagation(); viewCardDetails('${card.id}')" style="margin-right: 4px; padding: 6px 10px; font-size: 12px;">View</button>
-            <button class="btn btn-primary" onclick="event.stopPropagation(); syncCardToSheet('${card.id}')" style="margin-right: 4px; padding: 6px 10px; font-size: 12px;">Sync</button>
+            <button class="btn btn-primary" onclick="event.stopPropagation(); syncCardToSheet('${card.id}', true)" style="margin-right: 4px; padding: 6px 10px; font-size: 12px;" title="${card.syncedToSheet ? 'Re-sync this card' : 'Sync this card'}">${card.syncedToSheet ? 'Re-sync' : 'Sync'}</button>
             <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCard('${card.id}')" style="padding: 6px 10px; font-size: 12px;">Del</button>
           </td>
         </tr>
@@ -1227,7 +1297,7 @@
       modal.classList.remove('hidden');
     }
 
-    async function syncCardToSheet(cardId) {
+    async function syncCardToSheet(cardId, forceSync = false) {
       try {
         const res = await fetch('/api/sync-to-sheet', {
           method: 'POST',
@@ -1235,14 +1305,22 @@
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ cardId })
+          body: JSON.stringify({ cardId, forceSync })
         });
 
         const data = await res.json();
 
         if (res.ok) {
-          alert('✓ Card synced to Google Sheet!');
-          loadCards(); // Refresh to show synced status
+          if (data.skipped) {
+            alert('Card already synced. Click "Re-sync" to sync again.');
+          } else {
+            alert('✓ Card synced to Google Sheet!');
+          }
+          await loadCards(); // Refresh to show synced status
+          // Re-filter if viewing a user's collection
+          if (currentFilterEmail) {
+            viewUserCollection(currentFilterEmail, currentFilterName);
+          }
         } else {
           alert(data.error || 'Failed to sync to Google Sheet');
         }
