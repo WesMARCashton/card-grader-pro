@@ -821,7 +821,7 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 });
 
 // Sync card to Google Sheet
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUuf4iRJX5aHSdcAbwc7aKlSdEkoccCgXaF23m0oExoIjQXn6nqK8dpqqp_nAdBKKpIQ/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxr6GAXMrn5TCccfd4ksE_9O7XZIWaM0UimQixGd9BcLuJ1p4EBmMvSSndp_Sj7zGXB1g/exec';
 
 app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
   try {
