@@ -878,17 +878,20 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
     // edges_grade, edges_notes, surface_grade, surface_notes, print_quality_grade,
     // print_quality_notes, summary, front_image_url, back_image_url
     
+    // Helper to capitalize strings
+    const toUpper = (str) => str ? String(str).toUpperCase() : '';
+    
     const rowData = {
       secret: user.googleSheetSecret || 'myStrongSecretKey2025!', // Auth for Apps Script
-      year: card.cardIdentification?.year || '',
-      company: card.cardIdentification?.sport || '',
-      series: '', // We don't have this field separately
-      name: card.cardIdentification?.playerOrCharacter || '',
-      edition: '', // We don't have this field separately
-      set: card.cardIdentification?.cardSet || '',
-      number: card.cardIdentification?.cardNumber || '',
-      grade: card.overallGrade,
-      mint: PSA_GRADES[Math.round(card.overallGrade)] || '',
+      year: toUpper(card.cardIdentification?.year || ''),           // A - capitalized
+      company: toUpper(card.cardIdentification?.sport || ''),       // B - capitalized
+      series: '',                                                    // C - empty
+      name: toUpper(card.cardIdentification?.playerOrCharacter || ''), // D - capitalized
+      edition: '',                                                   // E - empty
+      set: toUpper(card.cardIdentification?.cardSet || ''),         // F - capitalized
+      number: toUpper(card.cardIdentification?.cardNumber || ''),   // G - capitalized
+      grade: card.overallGrade,                                     // I - numeric, not capitalized
+      mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''), // H - capitalized
       cert: '', // Certification number - empty for AI graded
       qr: '', // QR code - empty for now
       centering_grade: card.grades?.centering?.score || '',
