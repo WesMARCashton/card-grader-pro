@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
+const admin = require('firebase-admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,53 @@ const APP_URL = process.env.APP_URL || 'https://card-grader-pro-production.up.ra
 if (!MONGODB_URI) {
   console.error('❌ MONGODB_URI environment variable is required');
   process.exit(1);
+}
+
+// Firebase Storage Setup
+let bucket = null;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'cardgrade-pro.firebasestorage.app'
+    });
+    bucket = admin.storage().bucket();
+    console.log('✅ Firebase Storage initialized');
+  } catch (error) {
+    console.error('❌ Firebase initialization error:', error.message);
+  }
+} else {
+  console.log('⚠️ FIREBASE_SERVICE_ACCOUNT not set, image hosting disabled');
+}
+
+// Upload image to Firebase Storage and return public URL
+async function uploadImageToFirebase(base64Data, cardId, imageType) {
+  if (!bucket) {
+    return null;
+  }
+  
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    const filename = `card-images/${cardId}-${imageType}.jpg`;
+    const file = bucket.file(filename);
+    
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'image/jpeg'
+      }
+    });
+    
+    // Make the file publicly accessible
+    await file.makePublic();
+    
+    // Return the public URL
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+    return publicUrl;
+  } catch (error) {
+    console.error('Firebase upload error:', error);
+    return null;
+  }
 }
 
 let db;
@@ -786,35 +834,62 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Card not found' });
     }
     
-    // Prepare data for Google Sheet
-    // Columns: A=Year, B=Company, C=Series, D=Name, E=Edition, F=Set, G=Card#, H=Mint, I=Final Grade
-    // J=blank, K=blank, L=Centering Grade, M=Centering Notes, N=Corner Grade, O=Corner Notes
-    // P=Edges Grade, Q=Edges Notes, R=Surface Grade, S=Surface Notes, T=Print Quality, U=Print Quality Notes
-    // V=Summary, W=Front Image URL, X=Back Image URL
+    // Upload images to Firebase Storage (if not already uploaded)
+    let frontImageUrl = card.frontImageUrl || '';
+    let backImageUrl = card.backImageUrl || '';
+    
+    if (card.frontImage && !frontImageUrl) {
+      frontImageUrl = await uploadImageToFirebase(card.frontImage, cardId, 'front');
+      if (frontImageUrl) {
+        await cardsCollection.updateOne(
+          { _id: new ObjectId(cardId) },
+          { $set: { frontImageUrl } }
+        );
+      }
+    }
+    
+    if (card.backImage && !backImageUrl) {
+      backImageUrl = await uploadImageToFirebase(card.backImage, cardId, 'back');
+      if (backImageUrl) {
+        await cardsCollection.updateOne(
+          { _id: new ObjectId(cardId) },
+          { $set: { backImageUrl } }
+        );
+      }
+    }
+    
+    // Prepare data for Google Sheet - matching exact column names
+    // year, company, series, name, edition, set, card_number, mint_label, final_grade,
+    // cert_number, qr_url, centering_grade, centering_notes, corners_grade, corners_notes,
+    // edges_grade, edges_notes, surface_grade, surface_notes, print_quality_grade,
+    // print_quality_notes, summary, front_image_url, back_image_url
     
     const rowData = {
+      secret: user.googleSheetSecret || 'myStrongSecretKey2025!', // Auth for Apps Script
       year: card.cardIdentification?.year || '',
       company: card.cardIdentification?.sport || '',
       series: '', // We don't have this field separately
       name: card.cardIdentification?.playerOrCharacter || '',
       edition: '', // We don't have this field separately
       set: card.cardIdentification?.cardSet || '',
-      cardNumber: card.cardIdentification?.cardNumber || '',
+      number: card.cardIdentification?.cardNumber || '',
+      grade: card.overallGrade,
       mint: PSA_GRADES[Math.round(card.overallGrade)] || '',
-      finalGrade: card.overallGrade,
-      centeringGrade: card.grades?.centering?.score || '',
-      centeringNotes: card.grades?.centering?.notes || '',
-      cornerGrade: card.grades?.corners?.score || '',
-      cornerNotes: card.grades?.corners?.notes || '',
-      edgesGrade: card.grades?.edges?.score || '',
-      edgesNotes: card.grades?.edges?.notes || '',
-      surfaceGrade: card.grades?.surface?.score || '',
-      surfaceNotes: card.grades?.surface?.notes || '',
-      printQualityGrade: card.grades?.printQuality?.score || '',
-      printQualityNotes: card.grades?.printQuality?.notes || '',
+      cert: '', // Certification number - empty for AI graded
+      qr: '', // QR code - empty for now
+      centering_grade: card.grades?.centering?.score || '',
+      centering_notes: card.grades?.centering?.notes || '',
+      corners_grade: card.grades?.corners?.score || '',
+      corners_notes: card.grades?.corners?.notes || '',
+      edges_grade: card.grades?.edges?.score || '',
+      edges_notes: card.grades?.edges?.notes || '',
+      surface_grade: card.grades?.surface?.score || '',
+      surface_notes: card.grades?.surface?.notes || '',
+      print_quality_grade: card.grades?.printQuality?.score || '',
+      print_quality_notes: card.grades?.printQuality?.notes || '',
       summary: card.summary || '',
-      frontImageUrl: card.frontImage ? `data:image/jpeg;base64,${card.frontImage.substring(0, 100)}...` : '',
-      backImageUrl: card.backImage ? `data:image/jpeg;base64,${card.backImage.substring(0, 100)}...` : ''
+      front_image_url: frontImageUrl || '',
+      back_image_url: backImageUrl || ''
     };
     
     // Send to Google Apps Script
