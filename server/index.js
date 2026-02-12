@@ -821,11 +821,13 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 });
 
 // Sync card to Google Sheet
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUuf4iRJX5aHSdcAbwc7aKlSdEkoccCgXaF23m0oExoIjQXn6nqK8dpqqp_nAdBKKpIQ/exec';
+
 app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
   try {
     const { cardId } = req.body;
     
-    // Get user's Google Sheet URL
+    // Get user's settings
     const user = await usersCollection.findOne({ email: req.user.email });
     if (!user || !user.googleSheetUrl) {
       return res.status(400).json({ error: 'Google Sheet URL not configured. Please set it in Settings.' });
@@ -904,15 +906,17 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       back_image_url: backImageUrl || ''
     };
     
-    // Send to Google Apps Script
-    const response = await fetch(user.googleSheetUrl, {
+    // Send to Google Apps Script (hardcoded URL)
+    const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rowData)
     });
     
-    if (!response.ok) {
-      throw new Error('Failed to sync to Google Sheet');
+    const responseText = await response.text();
+    
+    if (responseText.includes('ERROR') || responseText.includes('Unauthorized')) {
+      throw new Error(responseText);
     }
     
     // Mark card as synced
