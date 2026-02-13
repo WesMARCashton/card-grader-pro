@@ -985,7 +985,7 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       set: toUpper(fullSetName),                                    // F - full set name
       number: formatCardNumber(card.cardIdentification?.cardNumber || ''),   // G - card number with #
       grade: card.overallGrade,                                     // I - numeric grade
-      mint: toUpper(PSA_GRADES[card.overallGrade] || ''), // H - grade name
+      mint: toUpper(PSA_GRADES[parseFloat(card.overallGrade)] || PSA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''), // H - grade name
       cert: '', // Certification number - empty for AI graded
       qr: '', // QR code - empty for now
       centering_grade: card.grades?.centering?.score || '',
@@ -1106,7 +1106,7 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           set: toUpper(fullSetName),
           number: formatCardNumber(card.cardIdentification?.cardNumber || ''),
           grade: card.overallGrade,
-          mint: toUpper(PSA_GRADES[card.overallGrade] || ''),
+          mint: toUpper(PSA_GRADES[parseFloat(card.overallGrade)] || PSA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''),
           cert: '',
           qr: '',
           centering_grade: card.grades?.centering?.score || '',
