@@ -708,6 +708,57 @@ app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// Admin edit card identification
+app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const cardId = req.params.id;
+    const { cardIdentification, overallGrade } = req.body;
+    
+    const card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    const updateData = {};
+    
+    // Update card identification if provided
+    if (cardIdentification) {
+      updateData.cardIdentification = {
+        ...card.cardIdentification,
+        ...cardIdentification
+      };
+    }
+    
+    // Update grade if provided
+    if (overallGrade !== undefined) {
+      updateData.overallGrade = overallGrade;
+      updateData.manuallyAdjusted = true;
+    }
+    
+    // Reset sync status when card is edited
+    updateData.syncedToSheet = false;
+    updateData.syncedAt = null;
+    
+    await cardsCollection.updateOne(
+      { _id: new ObjectId(cardId) },
+      { $set: updateData }
+    );
+    
+    const updatedCard = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
+    
+    res.json({ 
+      success: true, 
+      card: {
+        ...updatedCard,
+        id: updatedCard._id.toString()
+      }
+    });
+  } catch (error) {
+    console.error('Admin edit card error:', error);
+    res.status(500).json({ error: 'Failed to edit card' });
+  }
+});
+
 // Create an admin account (pre-verified, no email required)
 app.post('/api/admin/create-admin', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -902,26 +953,31 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
     }
     
     // Prepare data for Google Sheet - matching exact column names
-    // year, company, series, name, edition, set, card_number, mint_label, final_grade,
-    // cert_number, qr_url, centering_grade, centering_notes, corners_grade, corners_notes,
-    // edges_grade, edges_notes, surface_grade, surface_notes, print_quality_grade,
-    // print_quality_notes, summary, front_image_url, back_image_url
+    // A: year, B: company (manufacturer), C: series, D: name, E: edition (variant), 
+    // F: set, G: card_number, H: mint_label, I: final_grade,
+    // J: cert_number, K: qr_url, L-X: grading details
     
     // Helper to capitalize strings
     const toUpper = (str) => str ? String(str).toUpperCase() : '';
     
+    // Build set name with series if available (like "O-PEE-CHEE - MARQUEE ROOKIES")
+    let fullSetName = card.cardIdentification?.cardSet || '';
+    if (card.cardIdentification?.series) {
+      fullSetName = fullSetName + ' - ' + card.cardIdentification.series;
+    }
+    
     const rowData = {
       secret: user.googleSheetSecret || 'myStrongSecretKey2025!', // Auth for Apps Script
       sheet: user.googleSheetTab || 'Grades', // Which tab to write to
-      year: toUpper(card.cardIdentification?.year || ''),           // A - capitalized
-      company: toUpper(card.cardIdentification?.sport || ''),       // B - capitalized
-      series: '',                                                    // C - empty
-      name: toUpper(card.cardIdentification?.playerOrCharacter || ''), // D - capitalized
-      edition: '',                                                   // E - empty
-      set: toUpper(card.cardIdentification?.cardSet || ''),         // F - capitalized
-      number: toUpper(card.cardIdentification?.cardNumber || ''),   // G - capitalized
-      grade: card.overallGrade,                                     // I - numeric, not capitalized
-      mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''), // H - capitalized
+      year: toUpper(card.cardIdentification?.year || ''),           // A - year
+      company: toUpper(card.cardIdentification?.company || card.cardIdentification?.sport || ''), // B - manufacturer (UPPER DECK, TOPPS, etc.)
+      series: toUpper(card.cardIdentification?.series || ''),       // C - series/subset
+      name: toUpper(card.cardIdentification?.playerOrCharacter || ''), // D - player name
+      edition: toUpper(card.cardIdentification?.variant || ''),     // E - variant (YELLOW BORDER, REFRACTOR, etc.)
+      set: toUpper(fullSetName),                                    // F - full set name
+      number: toUpper(card.cardIdentification?.cardNumber || ''),   // G - card number
+      grade: card.overallGrade,                                     // I - numeric grade
+      mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''), // H - grade name
       cert: '', // Certification number - empty for AI graded
       qr: '', // QR code - empty for now
       centering_grade: card.grades?.centering?.score || '',
@@ -1018,15 +1074,21 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           }
         }
         
+        // Build set name with series if available
+        let fullSetName = card.cardIdentification?.cardSet || '';
+        if (card.cardIdentification?.series) {
+          fullSetName = fullSetName + ' - ' + card.cardIdentification.series;
+        }
+        
         const rowData = {
           secret: admin.googleSheetSecret || 'myStrongSecretKey2025!',
           sheet: admin.googleSheetTab || 'Grades',
           year: toUpper(card.cardIdentification?.year || ''),
-          company: toUpper(card.cardIdentification?.sport || ''),
-          series: '',
+          company: toUpper(card.cardIdentification?.company || card.cardIdentification?.sport || ''),
+          series: toUpper(card.cardIdentification?.series || ''),
           name: toUpper(card.cardIdentification?.playerOrCharacter || ''),
-          edition: '',
-          set: toUpper(card.cardIdentification?.cardSet || ''),
+          edition: toUpper(card.cardIdentification?.variant || ''),
+          set: toUpper(fullSetName),
           number: toUpper(card.cardIdentification?.cardNumber || ''),
           grade: card.overallGrade,
           mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''),
@@ -1115,14 +1177,26 @@ GRADING SCALE (1-10):
 
 Analyze the provided card image(s) and provide a detailed grading report.
 
+CARD IDENTIFICATION - VERY IMPORTANT:
+When identifying the card, follow PSA labeling conventions:
+- "company" = The MANUFACTURER (e.g., UPPER DECK, TOPPS, PANINI, BOWMAN, FLEER, DONRUSS, THE POKEMON COMPANY, KONAMI, WIZARDS OF THE COAST) - NOT the league/sport
+- "sport" = The sport/category (NHL, NFL, NBA, MLB, POKEMON, MTG, YUGIOH, etc.)
+- "cardSet" = The specific set name (e.g., O-PEE-CHEE, CHROME, PRIZM, SELECT, MOSAIC, BASE SET, JUNGLE, etc.)
+- "series" = Any subset or insert name (e.g., MARQUEE ROOKIES, GAME DAY ACTION, PLATINUM PROFILES, etc.)
+- "variant" = Any parallel or special version (e.g., YELLOW BORDER, REFRACTOR, HOLO, FIRST EDITION, etc.)
+- "cardNumber" = The card number WITH # symbol (e.g., #582, #RC-1, etc.)
+
 IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks or other text:
 {
   "cardIdentification": {
-    "sport": "string (NHL/NFL/NBA/MLB/Pokemon/MTG/Yu-Gi-Oh/Other)",
+    "sport": "string (NHL/NFL/NBA/MLB/POKEMON/MTG/YUGIOH/OTHER)",
+    "company": "string (UPPER DECK/TOPPS/PANINI/BOWMAN/FLEER/KONAMI/etc.)",
     "playerOrCharacter": "string",
-    "cardSet": "string",
-    "year": "string or null",
-    "cardNumber": "string or null"
+    "cardSet": "string (the set name like O-PEE-CHEE, PRIZM, etc.)",
+    "series": "string or null (subset/insert name if applicable)",
+    "variant": "string or null (parallel name like YELLOW BORDER, REFRACTOR, etc.)",
+    "year": "string (like 2023 or 2023-24)",
+    "cardNumber": "string (include # like #582)"
   },
   "grades": {
     "centering": {

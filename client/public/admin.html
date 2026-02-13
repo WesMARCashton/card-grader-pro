@@ -1180,10 +1180,13 @@
       1: 'POOR'
     };
 
+    let currentEditCardId = null;
+
     function viewCardDetails(cardId) {
       const card = allCards.find(c => c.id === cardId);
       if (!card) return;
 
+      currentEditCardId = cardId;
       const modal = document.getElementById('card-modal');
       const modalTitle = document.getElementById('modal-title');
       const modalBody = document.getElementById('modal-body');
@@ -1231,27 +1234,44 @@
           ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ MANUALLY ADJUSTED</div>' : ''}
         </div>
 
-        <!-- Card Identification -->
+        <!-- Editable Card Identification -->
         <div class="detail-section">
-          <h3>Card Identification</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px;">
+          <h3>Card Identification <span style="font-size: 12px; color: rgba(255,255,255,0.4); font-weight: normal;">(editable)</span></h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
             <div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">CATEGORY</div>
-              <div style="font-weight: 500;">${(card.cardIdentification?.sport || 'Unknown').toUpperCase()}</div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">YEAR</label>
+              <input type="text" id="edit-year" class="form-input" value="${card.cardIdentification?.year || ''}" placeholder="e.g., 2023 or 2023-24" style="margin-bottom: 0;">
             </div>
             <div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">SET</div>
-              <div style="font-weight: 500;">${(card.cardIdentification?.cardSet || '-').toUpperCase()}</div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">COMPANY (Manufacturer)</label>
+              <input type="text" id="edit-company" class="form-input" value="${card.cardIdentification?.company || ''}" placeholder="e.g., UPPER DECK, TOPPS" style="margin-bottom: 0;">
             </div>
             <div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">YEAR</div>
-              <div style="font-weight: 500;">${card.cardIdentification?.year || '-'}</div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SPORT/CATEGORY</label>
+              <input type="text" id="edit-sport" class="form-input" value="${card.cardIdentification?.sport || ''}" placeholder="e.g., NHL, NFL, POKEMON" style="margin-bottom: 0;">
             </div>
             <div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 4px;">CARD #</div>
-              <div style="font-weight: 500;">${card.cardIdentification?.cardNumber || '-'}</div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SET</label>
+              <input type="text" id="edit-set" class="form-input" value="${card.cardIdentification?.cardSet || ''}" placeholder="e.g., O-PEE-CHEE, PRIZM" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SERIES/INSERT</label>
+              <input type="text" id="edit-series" class="form-input" value="${card.cardIdentification?.series || ''}" placeholder="e.g., MARQUEE ROOKIES" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">VARIANT/PARALLEL</label>
+              <input type="text" id="edit-variant" class="form-input" value="${card.cardIdentification?.variant || ''}" placeholder="e.g., YELLOW BORDER, REFRACTOR" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">PLAYER/CHARACTER</label>
+              <input type="text" id="edit-player" class="form-input" value="${card.cardIdentification?.playerOrCharacter || ''}" placeholder="e.g., CONNOR BEDARD" style="margin-bottom: 0;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">CARD #</label>
+              <input type="text" id="edit-number" class="form-input" value="${card.cardIdentification?.cardNumber || ''}" placeholder="e.g., #582" style="margin-bottom: 0;">
             </div>
           </div>
+          <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">💾 Save Changes</button>
         </div>
 
         <!-- Grade Breakdown -->
@@ -1337,6 +1357,46 @@
         }
       } catch (e) {
         alert('Error syncing to Google Sheet');
+      }
+    }
+
+    async function saveCardEdits(cardId) {
+      const cardIdentification = {
+        year: document.getElementById('edit-year').value.trim(),
+        company: document.getElementById('edit-company').value.trim(),
+        sport: document.getElementById('edit-sport').value.trim(),
+        cardSet: document.getElementById('edit-set').value.trim(),
+        series: document.getElementById('edit-series').value.trim(),
+        variant: document.getElementById('edit-variant').value.trim(),
+        playerOrCharacter: document.getElementById('edit-player').value.trim(),
+        cardNumber: document.getElementById('edit-number').value.trim()
+      };
+
+      try {
+        const res = await fetch(`/api/admin/cards/${cardId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ cardIdentification })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert('✓ Card updated successfully!');
+          await loadCards(); // Refresh cards
+          closeModal();
+          // Re-filter if viewing a user's collection
+          if (currentFilterEmail) {
+            viewUserCollection(currentFilterEmail, currentFilterName);
+          }
+        } else {
+          alert(data.error || 'Failed to update card');
+        }
+      } catch (e) {
+        alert('Error updating card');
       }
     }
 
