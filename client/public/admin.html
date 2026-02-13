@@ -1018,10 +1018,15 @@
     let currentFilterEmail = null;
     let currentFilterName = null;
 
-    function viewUserCollection(email, name) {
+    async function viewUserCollection(email, name) {
       currentFilterEmail = email;
       currentFilterName = name;
       showTab('cards');
+      
+      // Make sure cards are loaded
+      if (allCards.length === 0) {
+        await loadCards();
+      }
       
       // Show filter indicator with user info and sync all button
       let filterIndicator = document.getElementById('filter-indicator');
@@ -1062,8 +1067,8 @@
       renderFilteredCards(filteredCards);
     }
 
-    function filterCardsByUser(email) {
-      viewUserCollection(email, email.split('@')[0]);
+    async function filterCardsByUser(email) {
+      await viewUserCollection(email, email.split('@')[0]);
     }
 
     function clearCardFilter() {

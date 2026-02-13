@@ -652,12 +652,19 @@ app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) =>
     const cards = await cardsCollection
       .find({})
       .sort({ savedAt: -1 })
-      .limit(100)
       .toArray();
+    
+    // Get all users to map email to name
+    const users = await usersCollection.find({}).toArray();
+    const userMap = {};
+    users.forEach(u => {
+      userMap[u.email] = u.name;
+    });
     
     const transformedCards = cards.map(card => ({
       ...card,
-      id: card._id.toString()
+      id: card._id.toString(),
+      userName: userMap[card.userEmail] || card.userEmail
     }));
     
     res.json(transformedCards);
