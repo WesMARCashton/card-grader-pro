@@ -649,28 +649,51 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
 
 app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Get cards without the large image data first for the list
     const cards = await cardsCollection
       .find({})
+      .project({
+        _id: 1,
+        userEmail: 1,
+        cardIdentification: 1,
+        overallGrade: 1,
+        psaEquivalent: 1,
+        savedAt: 1,
+        syncedToSheet: 1,
+        syncedAt: 1,
+        manuallyAdjusted: 1,
+        frontImage: 1,  // Keep for thumbnail
+        // Exclude backImage and detailed grades for list view to reduce payload
+      })
       .sort({ savedAt: -1 })
       .toArray();
     
     // Get all users to map email to name
-    const users = await usersCollection.find({}).toArray();
+    const users = await usersCollection.find({}).project({ email: 1, name: 1 }).toArray();
     const userMap = {};
     users.forEach(u => {
       userMap[u.email] = u.name;
     });
     
     const transformedCards = cards.map(card => ({
-      ...card,
       id: card._id.toString(),
-      userName: userMap[card.userEmail] || card.userEmail
+      userEmail: card.userEmail,
+      userName: userMap[card.userEmail] || card.userEmail,
+      cardIdentification: card.cardIdentification,
+      overallGrade: card.overallGrade,
+      psaEquivalent: card.psaEquivalent,
+      savedAt: card.savedAt,
+      syncedToSheet: card.syncedToSheet,
+      syncedAt: card.syncedAt,
+      manuallyAdjusted: card.manuallyAdjusted,
+      frontImage: card.frontImage ? card.frontImage.substring(0, 1000) : null // Truncate for thumbnail
     }));
     
+    console.log(`Returning ${transformedCards.length} cards`);
     res.json(transformedCards);
   } catch (error) {
     console.error('Get all cards error:', error);
-    res.status(500).json({ error: 'Failed to get cards' });
+    res.status(500).json({ error: 'Failed to get cards: ' + error.message });
   }
 });
 

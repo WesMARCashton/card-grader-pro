@@ -924,28 +924,27 @@
         const res = await fetch('/api/admin/cards', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          console.error('Failed to load cards:', error);
+          allCards = [];
+          document.getElementById('cards-table-body').innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #fca5a5;">Failed to load cards. Please refresh.</td></tr>';
+          return;
+        }
+        
         allCards = await res.json();
+        
+        if (!Array.isArray(allCards)) {
+          console.error('Cards response is not an array:', allCards);
+          allCards = [];
+        }
 
-        const tbody = document.getElementById('cards-table-body');
-        tbody.innerHTML = allCards.map(card => `
-          <tr onclick="viewCardDetails('${card.id}')" style="cursor: pointer;">
-            <td><img src="data:image/jpeg;base64,${card.frontImage}" class="card-preview" alt="Card"></td>
-            <td>${card.cardIdentification?.playerOrCharacter || 'Unknown'}</td>
-            <td>${card.cardIdentification?.cardSet || '-'}</td>
-            <td><span class="badge badge-grade" style="background: ${getGradeColor(card.overallGrade)}30; color: ${getGradeColor(card.overallGrade)};">${card.overallGrade}</span></td>
-            <td>
-              <div>${card.userName || '-'}</div>
-              <div style="font-size: 11px; color: rgba(255,255,255,0.4);">${card.userEmail}</div>
-            </td>
-            <td>${new Date(card.savedAt).toLocaleDateString()}</td>
-            <td>
-              <button class="btn btn-secondary" onclick="event.stopPropagation(); viewCardDetails('${card.id}')" style="margin-right: 8px;">View</button>
-              <button class="btn btn-danger" onclick="event.stopPropagation(); deleteCard('${card.id}')">Delete</button>
-            </td>
-          </tr>
-        `).join('');
+        renderFilteredCards(allCards);
       } catch (e) {
         console.error('Failed to load cards:', e);
+        allCards = [];
+        document.getElementById('cards-table-body').innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #fca5a5;">Error loading cards. Please refresh.</td></tr>';
       }
     }
 
@@ -1126,9 +1125,20 @@
 
     function renderFilteredCards(cards) {
       const tbody = document.getElementById('cards-table-body');
+      
+      if (!cards || cards.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">No cards found</td></tr>';
+        return;
+      }
+      
       tbody.innerHTML = cards.map(card => `
         <tr onclick="viewCardDetails('${card.id}')" style="cursor: pointer;">
-          <td><img src="data:image/jpeg;base64,${card.frontImage}" class="card-preview" alt="Card"></td>
+          <td>
+            ${card.frontImage ? 
+              `<div class="card-preview" style="width: 50px; height: 70px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px;">🎴</div>` :
+              `<div class="card-preview" style="width: 50px; height: 70px; background: #333; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 10px;">No img</div>`
+            }
+          </td>
           <td>${card.cardIdentification?.playerOrCharacter || 'Unknown'}</td>
           <td>${card.cardIdentification?.cardSet || '-'}</td>
           <td><span class="badge badge-grade" style="background: ${getGradeColor(card.overallGrade)}30; color: ${getGradeColor(card.overallGrade)};">${card.overallGrade}</span></td>
@@ -1147,10 +1157,6 @@
           </td>
         </tr>
       `).join('');
-      
-      if (cards.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">No cards found</td></tr>';
-      }
     }
 
     function getGradeColor(grade) {
