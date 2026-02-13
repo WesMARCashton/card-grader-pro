@@ -960,6 +960,14 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
     // Helper to capitalize strings
     const toUpper = (str) => str ? String(str).toUpperCase() : '';
     
+    // Helper to format card number with # prefix
+    const formatCardNumber = (num) => {
+      if (!num) return '';
+      const numStr = String(num).toUpperCase().trim();
+      // Add # if not already present
+      return numStr.startsWith('#') ? numStr : '#' + numStr;
+    };
+    
     // Build set name with series if available (like "O-PEE-CHEE - MARQUEE ROOKIES")
     let fullSetName = card.cardIdentification?.cardSet || '';
     if (card.cardIdentification?.series) {
@@ -975,9 +983,9 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       name: toUpper(card.cardIdentification?.playerOrCharacter || ''), // D - player name
       edition: toUpper(card.cardIdentification?.variant || ''),     // E - variant (YELLOW BORDER, REFRACTOR, etc.)
       set: toUpper(fullSetName),                                    // F - full set name
-      number: toUpper(card.cardIdentification?.cardNumber || ''),   // G - card number
+      number: formatCardNumber(card.cardIdentification?.cardNumber || ''),   // G - card number with #
       grade: card.overallGrade,                                     // I - numeric grade
-      mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''), // H - grade name
+      mint: toUpper(PSA_GRADES[card.overallGrade] || ''), // H - grade name
       cert: '', // Certification number - empty for AI graded
       qr: '', // QR code - empty for now
       centering_grade: card.grades?.centering?.score || '',
@@ -1074,6 +1082,13 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           }
         }
         
+        // Helper to format card number with # prefix
+        const formatCardNumber = (num) => {
+          if (!num) return '';
+          const numStr = String(num).toUpperCase().trim();
+          return numStr.startsWith('#') ? numStr : '#' + numStr;
+        };
+        
         // Build set name with series if available
         let fullSetName = card.cardIdentification?.cardSet || '';
         if (card.cardIdentification?.series) {
@@ -1089,9 +1104,9 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           name: toUpper(card.cardIdentification?.playerOrCharacter || ''),
           edition: toUpper(card.cardIdentification?.variant || ''),
           set: toUpper(fullSetName),
-          number: toUpper(card.cardIdentification?.cardNumber || ''),
+          number: formatCardNumber(card.cardIdentification?.cardNumber || ''),
           grade: card.overallGrade,
-          mint: toUpper(PSA_GRADES[Math.round(card.overallGrade)] || ''),
+          mint: toUpper(PSA_GRADES[card.overallGrade] || ''),
           cert: '',
           qr: '',
           centering_grade: card.grades?.centering?.score || '',
@@ -1146,15 +1161,24 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
 });
 
 const PSA_GRADES = {
-  10: 'GEM MINT',
+  10: 'GEM MT',
+  9.5: 'MINT+',
   9: 'MINT',
+  8.5: 'NM-MT+',
   8: 'NM-MT',
-  7: 'NEAR MINT',
+  7.5: 'NM+',
+  7: 'NM',
+  6.5: 'EX-MT+',
   6: 'EX-MT',
-  5: 'EXCELLENT',
+  5.5: 'EX+',
+  5: 'EX',
+  4.5: 'VG-EX+',
   4: 'VG-EX',
-  3: 'VERY GOOD',
+  3.5: 'VG+',
+  3: 'VG',
+  2.5: 'GOOD+',
   2: 'GOOD',
+  1.5: 'FAIR',
   1: 'POOR'
 };
 
