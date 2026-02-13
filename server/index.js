@@ -896,7 +896,7 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 });
 
 // Sync card to Google Sheet
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxr6GAXMrn5TCccfd4ksE_9O7XZIWaM0UimQixGd9BcLuJ1p4EBmMvSSndp_Sj7zGXB1g/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxQYoe2Vuz6kjwX3wcirzCebWB6ykJcyGEikT73dbKy4j3OlLmqkCZLo7VkkkHTKpGaRw/exec';
 
 app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
   try {
@@ -970,7 +970,7 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       secret: user.googleSheetSecret || 'myStrongSecretKey2025!', // Auth for Apps Script
       sheet: user.googleSheetTab || 'Grades', // Which tab to write to
       year: toUpper(card.cardIdentification?.year || ''),           // A - year
-      company: toUpper(card.cardIdentification?.company || card.cardIdentification?.sport || ''), // B - manufacturer (UPPER DECK, TOPPS, etc.)
+      company: toUpper(card.cardIdentification?.company || ''),     // B - manufacturer only (UPPER DECK, TOPPS, etc.)
       series: toUpper(card.cardIdentification?.series || ''),       // C - series/subset
       name: toUpper(card.cardIdentification?.playerOrCharacter || ''), // D - player name
       edition: toUpper(card.cardIdentification?.variant || ''),     // E - variant (YELLOW BORDER, REFRACTOR, etc.)
@@ -1084,7 +1084,7 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           secret: admin.googleSheetSecret || 'myStrongSecretKey2025!',
           sheet: admin.googleSheetTab || 'Grades',
           year: toUpper(card.cardIdentification?.year || ''),
-          company: toUpper(card.cardIdentification?.company || card.cardIdentification?.sport || ''),
+          company: toUpper(card.cardIdentification?.company || ''),
           series: toUpper(card.cardIdentification?.series || ''),
           name: toUpper(card.cardIdentification?.playerOrCharacter || ''),
           edition: toUpper(card.cardIdentification?.variant || ''),
