@@ -649,10 +649,14 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
 
 app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Get cards - removed sort to avoid MongoDB memory error
+    // Cards will be sorted client-side instead
     const cards = await cardsCollection
       .find({})
-      .sort({ savedAt: -1 })
       .toArray();
+    
+    // Sort in JavaScript instead of MongoDB
+    cards.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
     
     // Get all users to map email to name
     const users = await usersCollection.find({}).project({ email: 1, name: 1 }).toArray();
