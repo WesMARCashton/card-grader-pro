@@ -609,6 +609,30 @@
       text-transform: none;
     }
 
+    .editable-score {
+      width: 60px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .editable-score:hover {
+      border-color: rgba(255,255,255,0.5);
+    }
+
+    .editable-score:focus {
+      border-color: #a855f7;
+      background: rgba(168,85,247,0.2);
+    }
+
     .edit-hint {
       font-size: 11px;
       color: rgba(255,255,255,0.4);
@@ -1659,6 +1683,86 @@
       return GRADE_DESCRIPTIONS[category]?.[clampedScore] || `Grade ${score} condition.`;
     }
 
+    function updateCategoryGrade(category, value) {
+      if (!currentGradingResult) return;
+      
+      const newScore = Math.max(1, Math.min(10, parseFloat(value) || 1));
+      currentGradingResult.grades[category].score = newScore;
+      currentGradingResult.grades[category].notes = generateNotesForGrade(category, newScore);
+      
+      // Recalculate overall grade as average of all categories
+      const grades = currentGradingResult.grades;
+      const total = (grades.centering?.score || 0) + 
+                    (grades.corners?.score || 0) + 
+                    (grades.edges?.score || 0) + 
+                    (grades.surface?.score || 0) + 
+                    (grades.printQuality?.score || 0);
+      const average = total / 5;
+      const newOverall = Math.round(average * 2) / 2; // Round to nearest 0.5
+      
+      currentGradingResult.overallGrade = newOverall;
+      currentGradingResult.psaEquivalent = `PSA ${Math.round(newOverall)}`;
+      isManuallyAdjusted = true;
+      
+      // Update the bar for this category
+      const bar = document.getElementById(`bar-${category}`);
+      if (bar) {
+        const itemColor = getGradeColor(newScore);
+        bar.style.width = `${(newScore / 10) * 100}%`;
+        bar.style.background = itemColor;
+      }
+      
+      // Update the note for this category
+      const noteEl = document.getElementById(`note-${category}`);
+      if (noteEl) {
+        noteEl.textContent = currentGradingResult.grades[category].notes;
+      }
+      
+      // Update overall display
+      updateOverallDisplay();
+    }
+    
+    function updateOverallDisplay() {
+      const color = getGradeColor(currentGradingResult.overallGrade);
+
+      const overallCard = document.getElementById('overall-card');
+      overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
+      overallCard.style.borderColor = color;
+
+      document.getElementById('overall-score').textContent = currentGradingResult.overallGrade;
+      document.getElementById('overall-score').style.color = color;
+      document.getElementById('overall-name').textContent = PSA_GRADES[Math.round(currentGradingResult.overallGrade)] || '';
+      document.getElementById('overall-name').style.color = color;
+      document.getElementById('psa-badge').textContent = currentGradingResult.psaEquivalent;
+
+      document.getElementById('adjuster-value').textContent = currentGradingResult.overallGrade;
+      document.getElementById('adjuster-value').style.color = color;
+
+      document.getElementById('grade-down').disabled = currentGradingResult.overallGrade <= 1;
+      document.getElementById('grade-up').disabled = currentGradingResult.overallGrade >= 10;
+
+      const manualIndicator = document.getElementById('manual-indicator');
+      if (isManuallyAdjusted) {
+        manualIndicator.classList.remove('hidden');
+      } else {
+        manualIndicator.classList.add('hidden');
+      }
+      
+      // Update PSA Scale
+      const psaScale = document.getElementById('psa-scale');
+      psaScale.innerHTML = '';
+      for (let i = 10; i >= 1; i--) {
+        const itemColor = getGradeColor(i);
+        const isActive = Math.round(currentGradingResult.overallGrade) === i;
+        psaScale.innerHTML += `
+          <div class="psa-item ${isActive ? 'active' : ''}" style="${isActive ? `background: ${itemColor}30; border-color: ${itemColor};` : ''}">
+            <span class="grade" style="color: ${itemColor};">${i}</span>
+            <span class="name">${PSA_GRADES[i]}</span>
+          </div>
+        `;
+      }
+    }
+
     function adjustGrade(delta) {
       if (!currentGradingResult || !originalGradingResult) return;
 
@@ -1688,6 +1792,7 @@
 
     function updateGradeDisplay() {
       const color = getGradeColor(currentGradingResult.overallGrade);
+      const isAdmin = currentUser?.isAdmin;
 
       const overallCard = document.getElementById('overall-card');
       overallCard.style.background = `linear-gradient(135deg, ${color}20 0%, rgba(0,0,0,0.2) 100%)`;
@@ -1718,29 +1823,86 @@
       breakdown.innerHTML = '';
       notes.innerHTML = '';
 
-      for (const [key, value] of Object.entries(currentGradingResult.grades)) {
-        const itemColor = getGradeColor(value.score);
-        const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
-
-        breakdown.innerHTML += `
-          <div class="grade-item">
-            <div class="name">
-              ${displayName}
-              ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
-            </div>
+      if (isAdmin) {
+        // Editable version for admins
+        breakdown.innerHTML = `
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">CENTERING</div>
             <div class="bar">
-              <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+              <div class="bar-fill" id="bar-centering" style="width: ${(currentGradingResult.grades.centering?.score / 10) * 100}%; background: ${getGradeColor(currentGradingResult.grades.centering?.score)};"></div>
             </div>
-            <div class="score" style="color: ${itemColor};">${value.score}</div>
+            <input type="number" class="editable-score" id="edit-grade-centering" value="${currentGradingResult.grades.centering?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('centering', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">CORNERS</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-corners" style="width: ${(currentGradingResult.grades.corners?.score / 10) * 100}%; background: ${getGradeColor(currentGradingResult.grades.corners?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-corners" value="${currentGradingResult.grades.corners?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('corners', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">EDGES</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-edges" style="width: ${(currentGradingResult.grades.edges?.score / 10) * 100}%; background: ${getGradeColor(currentGradingResult.grades.edges?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-edges" value="${currentGradingResult.grades.edges?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('edges', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">SURFACE</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-surface" style="width: ${(currentGradingResult.grades.surface?.score / 10) * 100}%; background: ${getGradeColor(currentGradingResult.grades.surface?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-surface" value="${currentGradingResult.grades.surface?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('surface', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">PRINT QUALITY</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-printQuality" style="width: ${(currentGradingResult.grades.printQuality?.score / 10) * 100}%; background: ${getGradeColor(currentGradingResult.grades.printQuality?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-printQuality" value="${currentGradingResult.grades.printQuality?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('printQuality', this.value)">
+          </div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; margin-top: 8px;">
+            ✏️ Edit scores above - overall grade will recalculate automatically
           </div>
         `;
+        
+        // Notes section for admins
+        for (const [key, value] of Object.entries(currentGradingResult.grades)) {
+          const itemColor = getGradeColor(value.score);
+          const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
+          notes.innerHTML += `
+            <div class="note-item">
+              <span class="category" style="color: ${itemColor};">${displayName}:</span>
+              <span class="text" id="note-${key}">${value.notes}</span>
+            </div>
+          `;
+        }
+      } else {
+        // Read-only version for regular users
+        for (const [key, value] of Object.entries(currentGradingResult.grades)) {
+          const itemColor = getGradeColor(value.score);
+          const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
 
-        notes.innerHTML += `
-          <div class="note-item">
-            <span class="category" style="color: ${itemColor};">${displayName}:</span>
-            <span class="text">${value.notes}</span>
-          </div>
-        `;
+          breakdown.innerHTML += `
+            <div class="grade-item">
+              <div class="name">
+                ${displayName}
+                ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
+              </div>
+              <div class="bar">
+                <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+              </div>
+              <div class="score" style="color: ${itemColor};">${value.score}</div>
+            </div>
+          `;
+
+          notes.innerHTML += `
+            <div class="note-item">
+              <span class="category" style="color: ${itemColor};">${displayName}:</span>
+              <span class="text">${value.notes}</span>
+            </div>
+          `;
+        }
       }
 
       // Update PSA Scale
@@ -2020,35 +2182,92 @@
         `;
       }
 
-      // Grades breakdown
+      // Grades breakdown - editable for admins
       const breakdown = document.getElementById('grades-breakdown');
       const notes = document.getElementById('grades-notes');
       breakdown.innerHTML = '';
       notes.innerHTML = '';
 
-      for (const [key, value] of Object.entries(data.grades)) {
-        const itemColor = getGradeColor(value.score);
-        const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
-
-        breakdown.innerHTML += `
-          <div class="grade-item">
-            <div class="name">
-              ${displayName}
-              ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
-            </div>
+      if (isAdmin) {
+        // Editable version for admins
+        breakdown.innerHTML = `
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">CENTERING</div>
             <div class="bar">
-              <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+              <div class="bar-fill" id="bar-centering" style="width: ${(data.grades.centering?.score / 10) * 100}%; background: ${getGradeColor(data.grades.centering?.score)};"></div>
             </div>
-            <div class="score" style="color: ${itemColor};">${value.score}</div>
+            <input type="number" class="editable-score" id="edit-grade-centering" value="${data.grades.centering?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('centering', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">CORNERS</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-corners" style="width: ${(data.grades.corners?.score / 10) * 100}%; background: ${getGradeColor(data.grades.corners?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-corners" value="${data.grades.corners?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('corners', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">EDGES</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-edges" style="width: ${(data.grades.edges?.score / 10) * 100}%; background: ${getGradeColor(data.grades.edges?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-edges" value="${data.grades.edges?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('edges', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">SURFACE</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-surface" style="width: ${(data.grades.surface?.score / 10) * 100}%; background: ${getGradeColor(data.grades.surface?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-surface" value="${data.grades.surface?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('surface', this.value)">
+          </div>
+          <div class="grade-item" style="margin-bottom: 12px;">
+            <div class="name">PRINT QUALITY</div>
+            <div class="bar">
+              <div class="bar-fill" id="bar-printQuality" style="width: ${(data.grades.printQuality?.score / 10) * 100}%; background: ${getGradeColor(data.grades.printQuality?.score)};"></div>
+            </div>
+            <input type="number" class="editable-score" id="edit-grade-printQuality" value="${data.grades.printQuality?.score || 10}" min="1" max="10" step="0.5" onchange="updateCategoryGrade('printQuality', this.value)">
+          </div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; margin-top: 8px;">
+            ✏️ Edit scores above - overall grade will recalculate automatically
           </div>
         `;
+        
+        // Notes section for admins
+        for (const [key, value] of Object.entries(data.grades)) {
+          const itemColor = getGradeColor(value.score);
+          const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
+          notes.innerHTML += `
+            <div class="note-item">
+              <span class="category" style="color: ${itemColor};">${displayName}:</span>
+              <span class="text" id="note-${key}">${value.notes}</span>
+            </div>
+          `;
+        }
+      } else {
+        // Read-only version for regular users
+        for (const [key, value] of Object.entries(data.grades)) {
+          const itemColor = getGradeColor(value.score);
+          const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
 
-        notes.innerHTML += `
-          <div class="note-item">
-            <span class="category" style="color: ${itemColor};">${displayName}:</span>
-            <span class="text">${value.notes}</span>
-          </div>
-        `;
+          breakdown.innerHTML += `
+            <div class="grade-item">
+              <div class="name">
+                ${displayName}
+                ${key === 'centering' && value.frontRatio ? `<div class="ratio">${value.frontRatio}${value.backRatio ? ' / ' + value.backRatio : ''}</div>` : ''}
+              </div>
+              <div class="bar">
+                <div class="bar-fill" style="width: ${(value.score / 10) * 100}%; background: ${itemColor};"></div>
+              </div>
+              <div class="score" style="color: ${itemColor};">${value.score}</div>
+            </div>
+          `;
+
+          notes.innerHTML += `
+            <div class="note-item">
+              <span class="category" style="color: ${itemColor};">${displayName}:</span>
+              <span class="text">${value.notes}</span>
+            </div>
+          `;
+        }
       }
 
       document.getElementById('summary-text').textContent = data.summary;
