@@ -1271,30 +1271,48 @@
               <input type="text" id="edit-number" class="form-input" value="${card.cardIdentification?.cardNumber || ''}" placeholder="e.g., #582" style="margin-bottom: 0;">
             </div>
           </div>
-          <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">💾 Save Changes</button>
         </div>
 
-        <!-- Grade Breakdown -->
+        <!-- Editable Grade Breakdown -->
         <div class="detail-section">
-          <h3>Grade Breakdown</h3>
-          <div class="grade-breakdown">
-            ${Object.entries(card.grades || {}).map(([key, value]) => {
-              const itemColor = getGradeColor(value.score);
-              const displayName = key.replace(/([A-Z])/g, ' $1').trim().toUpperCase();
-              return `
-                <div>
-                  <div class="grade-item">
-                    <div class="name">${displayName}</div>
-                    <div class="bar">
-                      <div class="bar-fill" style="width: ${value.score * 10}%; background: ${itemColor};"></div>
-                    </div>
-                    <div class="score" style="color: ${itemColor};">${value.score}</div>
-                  </div>
-                  ${value.notes ? `<div class="grade-item"><div class="notes">${value.notes}</div></div>` : ''}
-                </div>
-              `;
-            }).join('')}
+          <h3>Grade Breakdown <span style="font-size: 12px; color: rgba(255,255,255,0.4); font-weight: normal;">(editable - adjusts overall grade)</span></h3>
+          
+          <!-- Overall Grade Display -->
+          <div style="background: ${color}20; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
+            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">CALCULATED OVERALL GRADE</div>
+            <div id="calculated-grade" style="font-size: 36px; font-weight: 700; color: ${color};">${card.overallGrade}</div>
+            <div id="calculated-mint" style="font-size: 14px; color: ${color};">${PSA_GRADES[card.overallGrade] || ''}</div>
           </div>
+          
+          <div style="display: grid; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
+              <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">CENTERING</div>
+              <input type="number" id="edit-centering" class="form-input" value="${card.grades?.centering?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="text" id="edit-centering-notes" class="form-input" value="${(card.grades?.centering?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about centering..." style="margin-bottom: 0; font-size: 12px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
+              <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">CORNERS</div>
+              <input type="number" id="edit-corners" class="form-input" value="${card.grades?.corners?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="text" id="edit-corners-notes" class="form-input" value="${(card.grades?.corners?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about corners..." style="margin-bottom: 0; font-size: 12px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
+              <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">EDGES</div>
+              <input type="number" id="edit-edges" class="form-input" value="${card.grades?.edges?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="text" id="edit-edges-notes" class="form-input" value="${(card.grades?.edges?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about edges..." style="margin-bottom: 0; font-size: 12px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
+              <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">SURFACE</div>
+              <input type="number" id="edit-surface" class="form-input" value="${card.grades?.surface?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="text" id="edit-surface-notes" class="form-input" value="${(card.grades?.surface?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about surface..." style="margin-bottom: 0; font-size: 12px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
+              <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">PRINT QUALITY</div>
+              <input type="number" id="edit-printQuality" class="form-input" value="${card.grades?.printQuality?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="text" id="edit-printQuality-notes" class="form-input" value="${(card.grades?.printQuality?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about print quality..." style="margin-bottom: 0; font-size: 12px;">
+            </div>
+          </div>
+          
+          <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">💾 Save All Changes</button>
         </div>
 
         <!-- Summary -->
@@ -1360,6 +1378,50 @@
       }
     }
 
+    const PSA_GRADE_LABELS = {
+      10: 'GEM MT',
+      9.5: 'MINT+',
+      9: 'MINT',
+      8.5: 'NM-MT+',
+      8: 'NM-MT',
+      7.5: 'NM+',
+      7: 'NM',
+      6.5: 'EX-MT+',
+      6: 'EX-MT',
+      5.5: 'EX+',
+      5: 'EX',
+      4.5: 'VG-EX+',
+      4: 'VG-EX',
+      3.5: 'VG+',
+      3: 'VG',
+      2.5: 'GOOD+',
+      2: 'GOOD',
+      1.5: 'FAIR',
+      1: 'POOR'
+    };
+
+    function recalculateGrade() {
+      const centering = parseFloat(document.getElementById('edit-centering').value) || 0;
+      const corners = parseFloat(document.getElementById('edit-corners').value) || 0;
+      const edges = parseFloat(document.getElementById('edit-edges').value) || 0;
+      const surface = parseFloat(document.getElementById('edit-surface').value) || 0;
+      const printQuality = parseFloat(document.getElementById('edit-printQuality').value) || 0;
+      
+      // Calculate average and round to nearest 0.5
+      const average = (centering + corners + edges + surface + printQuality) / 5;
+      const rounded = Math.round(average * 2) / 2;
+      
+      // Update display
+      const gradeEl = document.getElementById('calculated-grade');
+      const mintEl = document.getElementById('calculated-mint');
+      const color = getGradeColor(rounded);
+      
+      gradeEl.textContent = rounded;
+      gradeEl.style.color = color;
+      mintEl.textContent = PSA_GRADE_LABELS[rounded] || '';
+      mintEl.style.color = color;
+    }
+
     async function saveCardEdits(cardId) {
       const cardIdentification = {
         year: document.getElementById('edit-year').value.trim(),
@@ -1372,6 +1434,33 @@
         cardNumber: document.getElementById('edit-number').value.trim()
       };
 
+      const grades = {
+        centering: {
+          score: parseFloat(document.getElementById('edit-centering').value) || 10,
+          notes: document.getElementById('edit-centering-notes').value.trim()
+        },
+        corners: {
+          score: parseFloat(document.getElementById('edit-corners').value) || 10,
+          notes: document.getElementById('edit-corners-notes').value.trim()
+        },
+        edges: {
+          score: parseFloat(document.getElementById('edit-edges').value) || 10,
+          notes: document.getElementById('edit-edges-notes').value.trim()
+        },
+        surface: {
+          score: parseFloat(document.getElementById('edit-surface').value) || 10,
+          notes: document.getElementById('edit-surface-notes').value.trim()
+        },
+        printQuality: {
+          score: parseFloat(document.getElementById('edit-printQuality').value) || 10,
+          notes: document.getElementById('edit-printQuality-notes').value.trim()
+        }
+      };
+
+      // Calculate overall grade
+      const average = (grades.centering.score + grades.corners.score + grades.edges.score + grades.surface.score + grades.printQuality.score) / 5;
+      const overallGrade = Math.round(average * 2) / 2;
+
       try {
         const res = await fetch(`/api/admin/cards/${cardId}`, {
           method: 'PUT',
@@ -1379,7 +1468,7 @@
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ cardIdentification })
+          body: JSON.stringify({ cardIdentification, grades, overallGrade })
         });
 
         const data = await res.json();

@@ -712,7 +712,7 @@ app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, 
 app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const cardId = req.params.id;
-    const { cardIdentification, overallGrade } = req.body;
+    const { cardIdentification, grades, overallGrade } = req.body;
     
     const card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
     if (!card) {
@@ -729,7 +729,15 @@ app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res
       };
     }
     
-    // Update grade if provided
+    // Update grades if provided
+    if (grades) {
+      updateData.grades = {
+        ...card.grades,
+        ...grades
+      };
+    }
+    
+    // Update overall grade if provided
     if (overallGrade !== undefined) {
       updateData.overallGrade = overallGrade;
       updateData.manuallyAdjusted = true;
