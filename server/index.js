@@ -671,7 +671,7 @@ app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) =>
       userName: userMap[card.userEmail] || card.userEmail,
       cardIdentification: card.cardIdentification,
       overallGrade: card.overallGrade,
-      psaEquivalent: card.psaEquivalent,
+      ngaEquivalent: card.ngaEquivalent,
       savedAt: card.savedAt,
       syncedToSheet: card.syncedToSheet,
       syncedAt: card.syncedAt,
@@ -993,7 +993,7 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       set: toUpper(fullSetName),                                    // F - full set name
       number: formatCardNumber(card.cardIdentification?.cardNumber || ''),   // G - card number with #
       grade: card.overallGrade,                                     // I - numeric grade
-      mint: toUpper(PSA_GRADES[parseFloat(card.overallGrade)] || PSA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''), // H - grade name
+      mint: toUpper(NGA_GRADES[parseFloat(card.overallGrade)] || NGA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''), // H - grade name
       cert: '', // Certification number - empty for AI graded
       qr: '', // QR code - empty for now
       centering_grade: card.grades?.centering?.score || '',
@@ -1114,7 +1114,7 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
           set: toUpper(fullSetName),
           number: formatCardNumber(card.cardIdentification?.cardNumber || ''),
           grade: card.overallGrade,
-          mint: toUpper(PSA_GRADES[parseFloat(card.overallGrade)] || PSA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''),
+          mint: toUpper(NGA_GRADES[parseFloat(card.overallGrade)] || NGA_GRADES[Math.round(parseFloat(card.overallGrade) * 2) / 2] || ''),
           cert: '',
           qr: '',
           centering_grade: card.grades?.centering?.score || '',
@@ -1168,7 +1168,7 @@ app.post('/api/sync-all-to-sheet', authenticateToken, requireAdmin, async (req, 
   }
 });
 
-const PSA_GRADES = {
+const NGA_GRADES = {
   10: 'GEM MT',
   9.5: 'MINT+',
   9: 'MINT',
@@ -1193,7 +1193,7 @@ const PSA_GRADES = {
 // ============ GEMINI API INTEGRATION ============
 
 async function gradeCardWithGemini(frontBase64, backBase64) {
-  const systemPrompt = `You are an expert collectible card grader with decades of experience grading sports cards (NHL, NFL, NBA, MLB) and trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.). You grade cards following PSA (Professional Sports Authenticator) standards meticulously.
+  const systemPrompt = `You are an expert collectible card grader with decades of experience grading sports cards (NHL, NFL, NBA, MLB) and trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.). You grade cards following professional authentication standards meticulously.
 
 GRADING SCALE (1-10):
 - 10 Gem Mint: Perfect condition. Four perfectly sharp corners. Sharp focus. Full original gloss. Free of staining. No print defects. 55/45 centering or better on front, 75/25 or better on back.
@@ -1210,7 +1210,7 @@ GRADING SCALE (1-10):
 Analyze the provided card image(s) and provide a detailed grading report.
 
 CARD IDENTIFICATION - VERY IMPORTANT:
-When identifying the card, follow PSA labeling conventions:
+When identifying the card, follow professional labeling conventions:
 - "company" = The MANUFACTURER (e.g., UPPER DECK, TOPPS, PANINI, BOWMAN, FLEER, DONRUSS, THE POKEMON COMPANY, KONAMI, WIZARDS OF THE COAST) - NOT the league/sport
 - "sport" = The sport/category (NHL, NFL, NBA, MLB, POKEMON, MTG, YUGIOH, etc.)
 - "cardSet" = The specific set name (e.g., O-PEE-CHEE, CHROME, PRIZM, SELECT, MOSAIC, BASE SET, JUNGLE, etc.)
@@ -1255,14 +1255,14 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
     }
   },
   "overallGrade": number (1-10, can use .5),
-  "psaEquivalent": "string like PSA 8 or PSA 9",
+  "ngaEquivalent": "string like NGA 8 or NGA 9",
   "summary": "string with comprehensive 2-3 paragraph assessment explaining the grade and any notable features or defects",
   "marketNotes": "string with brief comment on card significance or collectibility if recognizable"
 }`;
 
   const parts = [
     { text: systemPrompt },
-    { text: "Please grade this collectible card following PSA standards. Analyze every detail carefully. Here is the front of the card:" },
+    { text: "Please grade this collectible card following professional grading standards. Analyze every detail carefully. Here is the front of the card:" },
     {
       inline_data: {
         mime_type: "image/jpeg",

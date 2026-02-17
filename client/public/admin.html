@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CardGrade Pro - Admin Panel</title>
+  <title>NGA - Admin Panel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+      background: linear-gradient(135deg, #1a3a5c 0%, #2d5a87 50%, #1a3a5c 100%);
       min-height: 100vh;
       color: white;
     }
@@ -75,7 +75,7 @@
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      background: linear-gradient(135deg, #2d5a87 0%, #f0b323 100%);
       color: white;
     }
 
@@ -140,7 +140,7 @@
     }
 
     .form-input:focus {
-      border-color: #a855f7;
+      border-color: #2d5a87;
     }
 
     .error-message {
@@ -190,7 +190,7 @@
 
     .stat-card.green .value { color: #10b981; }
     .stat-card.blue .value { color: #3b82f6; }
-    .stat-card.purple .value { color: #a855f7; }
+    .stat-card.purple .value { color: #2d5a87; }
     .stat-card.orange .value { color: #f59e0b; }
 
     /* Tabs */
@@ -348,7 +348,7 @@
     }
 
     .modal {
-      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      background: linear-gradient(135deg, #2d5a87 0%, #1a3a5c 100%);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 20px;
       width: 100%;
@@ -518,7 +518,7 @@
     .user-info .avatar {
       width: 40px;
       height: 40px;
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      background: linear-gradient(135deg, #2d5a87 0%, #f0b323 100%);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -553,7 +553,7 @@
       <div style="text-align: center; margin-bottom: 24px;">
         <div class="header-logo" style="margin: 0 auto 16px;">🔐</div>
         <h2>Admin Login</h2>
-        <p style="color: rgba(255,255,255,0.5); font-size: 14px;">CardGrade Pro Administration</p>
+        <p style="color: rgba(255,255,255,0.5); font-size: 14px;">NGA Administration</p>
       </div>
       
       <div id="login-error" class="error-message hidden"></div>
@@ -563,7 +563,7 @@
       <button class="btn btn-primary" style="width: 100%;" onclick="login()">Sign In</button>
       
       <p style="text-align: center; margin-top: 20px; font-size: 13px; color: rgba(255,255,255,0.4);">
-        <a href="/" style="color: #a855f7;">← Back to App</a>
+        <a href="/" style="color: #2d5a87;">← Back to App</a>
       </p>
     </div>
   </div>
@@ -576,7 +576,7 @@
           <div class="header-logo">🛡️</div>
           <div>
             <div class="header-title">Admin Panel</div>
-            <div class="header-subtitle">CardGrade Pro</div>
+            <div class="header-subtitle">NGA</div>
           </div>
         </div>
         <div style="display: flex; gap: 12px;">
@@ -737,30 +737,30 @@
         <div class="settings-section" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px;">
           <h3 style="margin-bottom: 16px; font-size: 16px;">📑 Sheet Column Mapping</h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; font-size: 12px;">
-            <div><span style="color: #a855f7; font-weight: 600;">A:</span> Year</div>
-            <div><span style="color: #a855f7; font-weight: 600;">B:</span> Company</div>
-            <div><span style="color: #a855f7; font-weight: 600;">C:</span> Series</div>
-            <div><span style="color: #a855f7; font-weight: 600;">D:</span> Name</div>
-            <div><span style="color: #a855f7; font-weight: 600;">E:</span> Edition</div>
-            <div><span style="color: #a855f7; font-weight: 600;">F:</span> Set</div>
-            <div><span style="color: #a855f7; font-weight: 600;">G:</span> Card #</div>
-            <div><span style="color: #a855f7; font-weight: 600;">H:</span> Mint Grade</div>
-            <div><span style="color: #a855f7; font-weight: 600;">I:</span> Final Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">A:</span> Year</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">B:</span> Company</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">C:</span> Series</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">D:</span> Name</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">E:</span> Edition</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">F:</span> Set</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">G:</span> Card #</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">H:</span> Mint Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">I:</span> Final Grade</div>
             <div><span style="color: rgba(255,255,255,0.3);">J:</span> <span style="color: rgba(255,255,255,0.3);">(blank)</span></div>
             <div><span style="color: rgba(255,255,255,0.3);">K:</span> <span style="color: rgba(255,255,255,0.3);">(blank)</span></div>
-            <div><span style="color: #a855f7; font-weight: 600;">L:</span> Centering Grade</div>
-            <div><span style="color: #a855f7; font-weight: 600;">M:</span> Centering Notes</div>
-            <div><span style="color: #a855f7; font-weight: 600;">N:</span> Corner Grade</div>
-            <div><span style="color: #a855f7; font-weight: 600;">O:</span> Corner Notes</div>
-            <div><span style="color: #a855f7; font-weight: 600;">P:</span> Edges Grade</div>
-            <div><span style="color: #a855f7; font-weight: 600;">Q:</span> Edges Notes</div>
-            <div><span style="color: #a855f7; font-weight: 600;">R:</span> Surface Grade</div>
-            <div><span style="color: #a855f7; font-weight: 600;">S:</span> Surface Notes</div>
-            <div><span style="color: #a855f7; font-weight: 600;">T:</span> Print Quality</div>
-            <div><span style="color: #a855f7; font-weight: 600;">U:</span> Print Quality Notes</div>
-            <div><span style="color: #a855f7; font-weight: 600;">V:</span> Summary</div>
-            <div><span style="color: #a855f7; font-weight: 600;">W:</span> Front Image URL</div>
-            <div><span style="color: #a855f7; font-weight: 600;">X:</span> Back Image URL</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">L:</span> Centering Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">M:</span> Centering Notes</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">N:</span> Corner Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">O:</span> Corner Notes</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">P:</span> Edges Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">Q:</span> Edges Notes</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">R:</span> Surface Grade</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">S:</span> Surface Notes</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">T:</span> Print Quality</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">U:</span> Print Quality Notes</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">V:</span> Summary</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">W:</span> Front Image URL</div>
+            <div><span style="color: #2d5a87; font-weight: 600;">X:</span> Back Image URL</div>
           </div>
         </div>
       </div>
@@ -873,7 +873,7 @@
                   <div style="font-size: 12px; color: rgba(255,255,255,0.4);">${user._id}</div>
                 </div>
               </div>
-              <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #a855f7;">${user.count} cards</div>
+              <div style="font-family: 'JetBrains Mono'; font-weight: 700; color: #2d5a87;">${user.count} cards</div>
             </div>
           `).join('');
         } else {
@@ -900,7 +900,7 @@
               <span class="badge ${user.isAdmin ? 'badge-admin' : 'badge-user'}">${user.isAdmin ? 'ADMIN' : 'USER'}</span>
             </td>
             <td><span class="badge" style="background: ${user.isVerified ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}; color: ${user.isVerified ? '#6ee7b7' : '#fbbf24'};">${user.isVerified ? 'VERIFIED' : 'PENDING'}</span></td>
-            <td style="color: #a855f7; font-weight: 500;">
+            <td style="color: #2d5a87; font-weight: 500;">
               ${user.cardCount || 0}
             </td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
@@ -1167,7 +1167,7 @@
       return '#ef4444';
     }
 
-    const PSA_GRADES = {
+    const NGA_GRADES = {
       10: 'GEM MINT',
       9: 'MINT',
       8: 'NM-MT',
@@ -1229,8 +1229,8 @@
         <!-- Overall Grade -->
         <div class="grade-display" style="background: ${color}20;">
           <div class="score" style="color: ${color};">${card.overallGrade}</div>
-          <div class="grade-name" style="color: ${color};">${PSA_GRADES[Math.round(card.overallGrade)] || ''}</div>
-          <div class="psa-badge">${card.psaEquivalent || 'PSA ' + Math.round(card.overallGrade)}</div>
+          <div class="grade-name" style="color: ${color};">${NGA_GRADES[Math.round(card.overallGrade)] || ''}</div>
+          <div class="psa-badge">${card.ngaEquivalent || 'NGA ' + Math.round(card.overallGrade)}</div>
           ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ MANUALLY ADJUSTED</div>' : ''}
         </div>
 
@@ -1281,7 +1281,7 @@
           <div style="background: ${color}20; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
             <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">CALCULATED OVERALL GRADE</div>
             <div id="calculated-grade" style="font-size: 36px; font-weight: 700; color: ${color};">${card.overallGrade}</div>
-            <div id="calculated-mint" style="font-size: 14px; color: ${color};">${PSA_GRADES[card.overallGrade] || ''}</div>
+            <div id="calculated-mint" style="font-size: 14px; color: ${color};">${NGA_GRADES[card.overallGrade] || ''}</div>
           </div>
           
           <div style="display: grid; gap: 12px;">
@@ -1592,7 +1592,7 @@
           <tr>
             <td><strong>${user.name}</strong></td>
             <td>${user.email}</td>
-            <td style="font-family: 'JetBrains Mono'; color: #a855f7;">${user.cardCount || 0}</td>
+            <td style="font-family: 'JetBrains Mono'; color: #2d5a87;">${user.cardCount || 0}</td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
               <button class="btn btn-secondary" onclick="filterCardsByUser('${user.email}')" style="margin-right: 8px;">View Cards</button>
