@@ -1134,9 +1134,9 @@
       tbody.innerHTML = cards.map(card => `
         <tr onclick="viewCardDetails('${card.id}')" style="cursor: pointer;">
           <td>
-            ${card.frontImage ? 
-              `<img src="data:image/jpeg;base64,${card.frontImage}" class="card-preview" alt="Card" style="width: 50px; height: 70px; object-fit: cover; border-radius: 4px;">` :
-              `<div style="width: 50px; height: 70px; background: #333; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 10px;">No img</div>`
+            ${card.frontImageUrl ? 
+              `<img src="${card.frontImageUrl}" class="card-preview" alt="Card" style="width: 50px; height: 70px; object-fit: cover; border-radius: 4px;">` :
+              `<div style="width: 50px; height: 70px; background: linear-gradient(135deg, #2d5a87 0%, #1a3a5c 100%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px;">🎴</div>`
             }
           </td>
           <td>${card.cardIdentification?.playerOrCharacter || 'Unknown'}</td>
@@ -1182,82 +1182,103 @@
 
     let currentEditCardId = null;
 
-    function viewCardDetails(cardId) {
-      const card = allCards.find(c => c.id === cardId);
-      if (!card) return;
-
-      currentEditCardId = cardId;
+    async function viewCardDetails(cardId) {
+      // Show loading state
       const modal = document.getElementById('card-modal');
       const modalTitle = document.getElementById('modal-title');
       const modalBody = document.getElementById('modal-body');
+      
+      modalTitle.textContent = 'Loading...';
+      modalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.5);">Loading card details...</div>';
+      modal.classList.remove('hidden');
+      
+      try {
+        // Fetch full card data including images
+        const res = await fetch(`/api/admin/cards/${cardId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          throw new Error('Failed to load card');
+        }
+        
+        const card = await res.json();
+        
+        currentEditCardId = cardId;
+        const color = getGradeColor(card.overallGrade);
+        const playerName = card.cardIdentification?.playerOrCharacter || 'Unknown Card';
 
-      const color = getGradeColor(card.overallGrade);
-      const playerName = card.cardIdentification?.playerOrCharacter || 'Unknown Card';
+        modalTitle.textContent = playerName.toUpperCase();
 
-      modalTitle.textContent = playerName.toUpperCase();
+        // Determine image sources - prefer Firebase URL, fallback to base64
+        const frontImgSrc = card.frontImageUrl || (card.frontImage ? `data:image/jpeg;base64,${card.frontImage}` : null);
+        const backImgSrc = card.backImageUrl || (card.backImage ? `data:image/jpeg;base64,${card.backImage}` : null);
 
-      modalBody.innerHTML = `
-        <!-- User Info -->
-        <div class="detail-section">
-          <h3>Submitted By</h3>
-          <div class="user-info">
-            <div class="avatar">${(card.userName || 'U')[0].toUpperCase()}</div>
-            <div>
-              <div style="font-weight: 500;">${card.userName || 'Unknown'}</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.5);">${card.userEmail || ''}</div>
-            </div>
-            <div style="margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.4);">
-              ${new Date(card.savedAt).toLocaleString()}
+        modalBody.innerHTML = `
+          <!-- User Info -->
+          <div class="detail-section">
+            <h3>Submitted By</h3>
+            <div class="user-info">
+              <div class="avatar">${(card.userName || 'U')[0].toUpperCase()}</div>
+              <div>
+                <div style="font-weight: 500;">${card.userName || 'Unknown'}</div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.5);">${card.userEmail || ''}</div>
+              </div>
+              <div style="margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.4);">
+                ${new Date(card.savedAt).toLocaleString()}
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Card Images -->
-        <div class="card-images">
-          <div>
-            <img src="data:image/jpeg;base64,${card.frontImage}" alt="Front">
-            <div class="label">FRONT</div>
+          <!-- Card Images -->
+          <div class="card-images">
+            <div>
+              ${frontImgSrc ? 
+                `<img src="${frontImgSrc}" alt="Front" style="max-width: 100%; border-radius: 8px;">` :
+                `<div style="width: 200px; height: 280px; background: linear-gradient(135deg, #2d5a87 0%, #1a3a5c 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px;">🎴</div>`
+              }
+              <div class="label">FRONT</div>
+            </div>
+            ${backImgSrc ? `
+              <div>
+                <img src="${backImgSrc}" alt="Back" style="max-width: 100%; border-radius: 8px;">
+                <div class="label">BACK</div>
+              </div>
+            ` : '<div></div>'}
           </div>
-          ${card.backImage ? `
-            <div>
-              <img src="data:image/jpeg;base64,${card.backImage}" alt="Back">
-              <div class="label">BACK</div>
-            </div>
-          ` : '<div></div>'}
-        </div>
 
-        <!-- Overall Grade -->
-        <div class="grade-display" style="background: ${color}20;">
-          <div class="score" style="color: ${color};">${card.overallGrade}</div>
-          <div class="grade-name" style="color: ${color};">${NGA_GRADES[Math.round(card.overallGrade)] || ''}</div>
-          <div class="psa-badge">${card.ngaEquivalent || 'NGA ' + Math.round(card.overallGrade)}</div>
-          ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ MANUALLY ADJUSTED</div>' : ''}
-        </div>
+          <!-- Overall Grade -->
+          <div class="grade-display" style="background: ${color}20;">
+            <div class="score" style="color: ${color};">${card.overallGrade}</div>
+            <div class="grade-name" style="color: ${color};">${NGA_GRADES[Math.round(card.overallGrade)] || ''}</div>
+            <div class="nga-badge">${card.ngaEquivalent || 'NGA ' + Math.round(card.overallGrade)}</div>
+            ${card.manuallyAdjusted ? '<div style="margin-top: 8px; font-size: 11px; color: #fbbf24;">✏️ MANUALLY ADJUSTED</div>' : ''}
+          </div>
 
-        <!-- Editable Card Identification -->
-        <div class="detail-section">
-          <h3>Card Identification <span style="font-size: 12px; color: rgba(255,255,255,0.4); font-weight: normal;">(editable)</span></h3>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-            <div>
-              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">YEAR</label>
-              <input type="text" id="edit-year" class="form-input" value="${card.cardIdentification?.year || ''}" placeholder="e.g., 2023 or 2023-24" style="margin-bottom: 0;">
-            </div>
-            <div>
-              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">COMPANY (Manufacturer)</label>
-              <input type="text" id="edit-company" class="form-input" value="${card.cardIdentification?.company || ''}" placeholder="e.g., UPPER DECK, TOPPS" style="margin-bottom: 0;">
-            </div>
-            <div>
-              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SPORT/CATEGORY</label>
-              <input type="text" id="edit-sport" class="form-input" value="${card.cardIdentification?.sport || ''}" placeholder="e.g., NHL, NFL, POKEMON" style="margin-bottom: 0;">
-            </div>
-            <div>
-              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SET</label>
-              <input type="text" id="edit-set" class="form-input" value="${card.cardIdentification?.cardSet || ''}" placeholder="e.g., O-PEE-CHEE, PRIZM" style="margin-bottom: 0;">
-            </div>
-            <div>
-              <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SERIES/INSERT</label>
-              <input type="text" id="edit-series" class="form-input" value="${card.cardIdentification?.series || ''}" placeholder="e.g., MARQUEE ROOKIES" style="margin-bottom: 0;">
-            </div>
+          <!-- Editable Card Identification -->
+          <div class="detail-section">
+            <h3>Card Identification <span style="font-size: 12px; color: rgba(255,255,255,0.4); font-weight: normal;">(editable)</span></h3>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+              <div>
+                <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">YEAR</label>
+                <input type="text" id="edit-year" class="form-input" value="${card.cardIdentification?.year || ''}" placeholder="e.g., 2023 or 2023-24" style="margin-bottom: 0;">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">COMPANY (Manufacturer)</label>
+                <input type="text" id="edit-company" class="form-input" value="${card.cardIdentification?.company || ''}" placeholder="e.g., UPPER DECK, TOPPS" style="margin-bottom: 0;">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SPORT/CATEGORY</label>
+                <input type="text" id="edit-sport" class="form-input" value="${card.cardIdentification?.sport || ''}" placeholder="e.g., NHL, NFL, POKEMON" style="margin-bottom: 0;">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SET</label>
+                <input type="text" id="edit-set" class="form-input" value="${card.cardIdentification?.cardSet || ''}" placeholder="e.g., O-PEE-CHEE, PRIZM" style="margin-bottom: 0;">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">SERIES/INSERT</label>
+                <input type="text" id="edit-series" class="form-input" value="${card.cardIdentification?.series || ''}" placeholder="e.g., MARQUEE ROOKIES" style="margin-bottom: 0;">
+              </div>
             <div>
               <label style="font-size: 11px; color: rgba(255,255,255,0.4); display: block; margin-bottom: 4px;">VARIANT/PARALLEL</label>
               <input type="text" id="edit-variant" class="form-input" value="${card.cardIdentification?.variant || ''}" placeholder="e.g., YELLOW BORDER, REFRACTOR" style="margin-bottom: 0;">
@@ -1343,7 +1364,10 @@
         ${card.syncedToSheet ? `<div style="text-align: center; margin-top: 8px; font-size: 12px; color: #6ee7b7;">✓ Synced to sheet on ${new Date(card.syncedAt).toLocaleString()}</div>` : ''}
       `;
 
-      modal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading card details:', error);
+        modalBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #fca5a5;">Failed to load card details. Please try again.</div>';
+      }
     }
 
     async function syncCardToSheet(cardId, forceSync = false) {

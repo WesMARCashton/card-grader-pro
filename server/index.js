@@ -649,10 +649,26 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
 
 app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Get cards - removed sort to avoid MongoDB memory error
-    // Cards will be sorted client-side instead
+    // Get cards WITHOUT full base64 image data to save memory
     const cards = await cardsCollection
       .find({})
+      .project({
+        _id: 1,
+        userEmail: 1,
+        cardIdentification: 1,
+        overallGrade: 1,
+        ngaEquivalent: 1,
+        savedAt: 1,
+        syncedToSheet: 1,
+        syncedAt: 1,
+        manuallyAdjusted: 1,
+        grades: 1,
+        summary: 1,
+        marketNotes: 1,
+        frontImageUrl: 1,  // Use Firebase URL instead of base64
+        backImageUrl: 1
+        // Excluding frontImage and backImage (base64) to save memory
+      })
       .toArray();
     
     // Sort in JavaScript instead of MongoDB
@@ -676,14 +692,14 @@ app.get('/api/admin/cards', authenticateToken, requireAdmin, async (req, res) =>
       syncedToSheet: card.syncedToSheet,
       syncedAt: card.syncedAt,
       manuallyAdjusted: card.manuallyAdjusted,
-      frontImage: card.frontImage || null,
-      backImage: card.backImage || null,
       grades: card.grades,
       summary: card.summary,
-      marketNotes: card.marketNotes
+      marketNotes: card.marketNotes,
+      frontImageUrl: card.frontImageUrl || null,
+      backImageUrl: card.backImageUrl || null
     }));
     
-    console.log(`Returning ${transformedCards.length} cards`);
+    console.log(`Returning ${transformedCards.length} cards (without base64 images)`);
     res.json(transformedCards);
   } catch (error) {
     console.error('Get all cards error:', error);
@@ -705,6 +721,30 @@ app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, 
   } catch (error) {
     console.error('Admin delete card error:', error);
     res.status(500).json({ error: 'Failed to delete card' });
+  }
+});
+
+// Get single card with full data (including images) for admin
+app.get('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const cardId = req.params.id;
+    
+    const card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    // Get user name
+    const user = await usersCollection.findOne({ email: card.userEmail });
+    
+    res.json({
+      ...card,
+      id: card._id.toString(),
+      userName: user?.name || card.userEmail
+    });
+  } catch (error) {
+    console.error('Get single card error:', error);
+    res.status(500).json({ error: 'Failed to get card' });
   }
 });
 
