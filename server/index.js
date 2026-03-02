@@ -462,15 +462,27 @@ app.post('/api/grade', authenticateToken, upload.fields([
   { name: 'backImage', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const frontFile = req.files['frontImage']?.[0];
-    const backFile = req.files['backImage']?.[0];
+    let frontBase64, backBase64;
+    
+    // Check if this is a JSON request (from bulk upload) or multipart form (from single upload)
+    if (req.body && req.body.frontImage && typeof req.body.frontImage === 'string') {
+      // JSON request with base64 images
+      frontBase64 = req.body.frontImage;
+      backBase64 = req.body.backImage || null;
+    } else if (req.files && req.files['frontImage']) {
+      // Multipart form with file uploads
+      const frontFile = req.files['frontImage']?.[0];
+      const backFile = req.files['backImage']?.[0];
 
-    if (!frontFile) {
+      if (!frontFile) {
+        return res.status(400).json({ error: 'Front image is required' });
+      }
+
+      frontBase64 = frontFile.buffer.toString('base64');
+      backBase64 = backFile ? backFile.buffer.toString('base64') : null;
+    } else {
       return res.status(400).json({ error: 'Front image is required' });
     }
-
-    const frontBase64 = frontFile.buffer.toString('base64');
-    const backBase64 = backFile ? backFile.buffer.toString('base64') : null;
 
     // Call Gemini API
     const result = await gradeCardWithGemini(frontBase64, backBase64);
@@ -1329,7 +1341,7 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1399,7 +1411,7 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
 }`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1512,7 +1524,7 @@ If you can't determine if something is front or back, treat it as a front.`;
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
