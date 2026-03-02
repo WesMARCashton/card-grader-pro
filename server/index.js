@@ -1364,6 +1364,90 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   return JSON.parse(jsonMatch[0]);
 }
 
+// Identify card only (no grading) - for bulk upload
+app.post('/api/identify-only', authenticateToken, async (req, res) => {
+  try {
+    const { frontImage } = req.body;
+
+    if (!frontImage) {
+      return res.status(400).json({ error: 'Front image is required' });
+    }
+
+    const systemPrompt = `You are an expert at identifying collectible cards. Look at this card image and identify:
+- The sport/category (NHL, NFL, NBA, MLB, POKEMON, MTG, YUGIOH, etc.)
+- The manufacturer/company (UPPER DECK, TOPPS, PANINI, THE POKEMON COMPANY, KONAMI, etc.)
+- The player or character name
+- The card set name
+- The year
+- The card number
+
+IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
+{
+  "cardIdentification": {
+    "sport": "string",
+    "company": "string", 
+    "playerOrCharacter": "string",
+    "cardSet": "string",
+    "series": "string or null",
+    "variant": "string or null",
+    "year": "string",
+    "cardNumber": "string"
+  }
+}`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: systemPrompt },
+              { text: "Identify this card:" },
+              {
+                inline_data: {
+                  mime_type: "image/jpeg",
+                  data: frontImage
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1000
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message || 'Failed to identify card');
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    let jsonText = text;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Could not parse identification response');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    res.json(result);
+  } catch (error) {
+    console.error('Identify error:', error);
+    res.status(500).json({ error: error.message || 'Failed to identify card' });
+  }
+});
+
 // Serve admin page
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/public/admin.html'));
@@ -1377,6 +1461,6 @@ app.get('*', (req, res) => {
 // Start server
 connectToMongoDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🎴 CardGrade Pro server running on http://localhost:${PORT}`);
+    console.log(`🎴 NGA server running on http://localhost:${PORT}`);
   });
 });

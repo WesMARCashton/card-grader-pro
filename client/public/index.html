@@ -1032,7 +1032,7 @@
       </div>
 
       <div class="demo-box">
-        <strong>Demo:</strong> demo@cardgrader.com / demo123
+        <strong>Demo:</strong> <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bdd9d8d0d2fddedccfd9dacfdcd9d8cf93ded2d0">[email&#160;protected]</a> / demo123
       </div>
     </div>
   </div>
@@ -1055,7 +1055,82 @@
     <div class="container">
       <div class="nav-tabs">
         <button class="nav-tab active" id="tab-grade">📷 Grade Card</button>
+        <button class="nav-tab" id="tab-bulk">📁 Bulk Upload</button>
         <button class="nav-tab" id="tab-collection">📚 My Collection <span id="collection-count"></span></button>
+      </div>
+
+      <!-- Bulk Upload View -->
+      <div id="bulk-view" class="hidden">
+        <div class="result-card" style="margin-bottom: 24px;">
+          <h3 style="margin-bottom: 12px;">📁 Bulk Upload Cards</h3>
+          <p style="color: rgba(255,255,255,0.6); margin-bottom: 20px;">
+            Upload multiple card images at once. The AI will identify each card and you can set a default grade for all of them.
+          </p>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 8px;">DEFAULT GRADE FOR ALL CARDS</label>
+              <input type="number" id="bulk-default-grade" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center; font-size: 24px; font-weight: 700;">
+            </div>
+            <div>
+              <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 8px;">GRADING MODE</label>
+              <select id="bulk-grade-mode" class="form-input" style="height: 56px;">
+                <option value="skip">Skip AI Grading (Use Default Grade)</option>
+                <option value="ai">AI Grade Each Card</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="upload-zone" id="bulk-upload-zone" style="min-height: 200px; border: 2px dashed rgba(240,179,35,0.5);">
+            <div class="icon" style="font-size: 48px;">📁</div>
+            <div class="text">Drop folder or click to select multiple images</div>
+            <div class="subtext">JPG, PNG, WebP - Select as many as you want</div>
+          </div>
+          <input type="file" id="bulk-input" accept="image/*" multiple webkitdirectory style="display:none;">
+          <input type="file" id="bulk-input-files" accept="image/*" multiple style="display:none;">
+          
+          <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button class="btn btn-secondary" onclick="document.getElementById('bulk-input-files').click()" style="flex: 1;">
+              📷 Select Multiple Images
+            </button>
+            <button class="btn btn-secondary" onclick="document.getElementById('bulk-input').click()" style="flex: 1;">
+              📁 Select Folder
+            </button>
+          </div>
+        </div>
+        
+        <!-- Bulk Upload Queue -->
+        <div id="bulk-queue" class="result-card hidden">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3>Upload Queue (<span id="bulk-queue-count">0</span> cards)</h3>
+            <div>
+              <button class="btn btn-secondary" onclick="clearBulkQueue()" style="margin-right: 8px;">Clear All</button>
+              <button class="btn btn-primary" id="process-bulk-btn" onclick="processBulkUpload()">
+                🚀 Process & Save All
+              </button>
+            </div>
+          </div>
+          
+          <div id="bulk-progress" class="hidden" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span id="bulk-progress-text">Processing...</span>
+              <span id="bulk-progress-count">0/0</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 8px; overflow: hidden;">
+              <div id="bulk-progress-bar" style="background: #f0b323; height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+          </div>
+          
+          <div id="bulk-queue-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; max-height: 400px; overflow-y: auto;">
+          </div>
+        </div>
+        
+        <!-- Bulk Results -->
+        <div id="bulk-results" class="result-card hidden">
+          <h3 style="margin-bottom: 16px;">✓ Upload Complete</h3>
+          <p id="bulk-results-text" style="color: rgba(255,255,255,0.6);"></p>
+          <button class="btn btn-primary" onclick="viewCollection()" style="margin-top: 16px;">View My Collection</button>
+        </div>
       </div>
 
       <div id="grade-view">
@@ -1178,7 +1253,7 @@
     </div>
   </div>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     const NGA_GRADES = {
       10: 'GEM MINT',
       9: 'MINT',
@@ -1486,16 +1561,33 @@
     function showGradeView() {
       gradeView.classList.remove('hidden');
       collectionView.classList.add('hidden');
+      document.getElementById('bulk-view').classList.add('hidden');
       tabGrade.classList.add('active');
       tabCollection.classList.remove('active');
+      document.getElementById('tab-bulk').classList.remove('active');
     }
 
     function showCollectionView() {
       gradeView.classList.add('hidden');
       collectionView.classList.remove('hidden');
+      document.getElementById('bulk-view').classList.add('hidden');
       tabGrade.classList.remove('active');
       tabCollection.classList.add('active');
+      document.getElementById('tab-bulk').classList.remove('active');
       renderCollection();
+    }
+
+    function showBulkView() {
+      gradeView.classList.add('hidden');
+      collectionView.classList.add('hidden');
+      document.getElementById('bulk-view').classList.remove('hidden');
+      tabGrade.classList.remove('active');
+      tabCollection.classList.remove('active');
+      document.getElementById('tab-bulk').classList.add('active');
+    }
+
+    function viewCollection() {
+      showCollectionView();
     }
 
     function updateCollectionCount() {
@@ -2303,6 +2395,225 @@
 
     tabGrade.addEventListener('click', showGradeView);
     tabCollection.addEventListener('click', showCollectionView);
+    document.getElementById('tab-bulk').addEventListener('click', showBulkView);
+
+    // Bulk upload handling
+    let bulkQueue = [];
+
+    document.getElementById('bulk-upload-zone').addEventListener('click', () => {
+      document.getElementById('bulk-input-files').click();
+    });
+
+    document.getElementById('bulk-input').addEventListener('change', handleBulkFiles);
+    document.getElementById('bulk-input-files').addEventListener('change', handleBulkFiles);
+
+    function handleBulkFiles(e) {
+      const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+      if (files.length === 0) return;
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target.result.split(',')[1];
+          bulkQueue.push({
+            id: Date.now() + Math.random(),
+            file: file,
+            name: file.name,
+            base64: base64,
+            preview: event.target.result,
+            status: 'pending'
+          });
+          renderBulkQueue();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      e.target.value = '';
+    }
+
+    function renderBulkQueue() {
+      const queueDiv = document.getElementById('bulk-queue');
+      const listDiv = document.getElementById('bulk-queue-list');
+      const countSpan = document.getElementById('bulk-queue-count');
+
+      if (bulkQueue.length === 0) {
+        queueDiv.classList.add('hidden');
+        return;
+      }
+
+      queueDiv.classList.remove('hidden');
+      countSpan.textContent = bulkQueue.length;
+
+      listDiv.innerHTML = bulkQueue.map(item => `
+        <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05);">
+          <img src="${item.preview}" style="width: 100%; height: 150px; object-fit: cover;">
+          <div style="position: absolute; top: 4px; right: 4px;">
+            ${item.status === 'pending' ? '<span style="background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; font-size: 10px;">Pending</span>' : ''}
+            ${item.status === 'processing' ? '<span style="background: #f0b323; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Processing...</span>' : ''}
+            ${item.status === 'done' ? '<span style="background: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px;">✓ Done</span>' : ''}
+            ${item.status === 'error' ? '<span style="background: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Error</span>' : ''}
+          </div>
+          <button onclick="removeFromBulkQueue('${item.id}')" style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.6); border: none; color: white; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px;">×</button>
+          <div style="padding: 6px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            ${item.name}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    window.removeFromBulkQueue = function(id) {
+      bulkQueue = bulkQueue.filter(item => item.id != id);
+      renderBulkQueue();
+    };
+
+    function clearBulkQueue() {
+      bulkQueue = [];
+      renderBulkQueue();
+      document.getElementById('bulk-results').classList.add('hidden');
+    }
+
+    async function processBulkUpload() {
+      if (bulkQueue.length === 0) {
+        alert('Please add some cards first');
+        return;
+      }
+
+      const defaultGrade = parseFloat(document.getElementById('bulk-default-grade').value) || 10;
+      const gradeMode = document.getElementById('bulk-grade-mode').value;
+      
+      const btn = document.getElementById('process-bulk-btn');
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
+      const progressDiv = document.getElementById('bulk-progress');
+      const progressText = document.getElementById('bulk-progress-text');
+      const progressCount = document.getElementById('bulk-progress-count');
+      const progressBar = document.getElementById('bulk-progress-bar');
+      
+      progressDiv.classList.remove('hidden');
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < bulkQueue.length; i++) {
+        const item = bulkQueue[i];
+        item.status = 'processing';
+        renderBulkQueue();
+
+        progressText.textContent = `Processing ${item.name}...`;
+        progressCount.textContent = `${i + 1}/${bulkQueue.length}`;
+        progressBar.style.width = `${((i + 1) / bulkQueue.length) * 100}%`;
+
+        try {
+          let cardData;
+
+          if (gradeMode === 'ai') {
+            // Use AI to grade and identify
+            const gradeRes = await fetch('/api/grade', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                frontImage: item.base64,
+                backImage: null
+              })
+            });
+
+            if (!gradeRes.ok) {
+              throw new Error('Failed to grade');
+            }
+
+            cardData = await gradeRes.json();
+          } else {
+            // Skip AI grading - just identify the card
+            const identifyRes = await fetch('/api/identify-only', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                frontImage: item.base64
+              })
+            });
+
+            if (identifyRes.ok) {
+              cardData = await identifyRes.json();
+            } else {
+              // Fallback - create minimal card data
+              cardData = {
+                cardIdentification: {
+                  playerOrCharacter: item.name.replace(/\.[^.]+$/, ''),
+                  cardSet: '',
+                  year: '',
+                  cardNumber: ''
+                }
+              };
+            }
+
+            // Set default grades
+            cardData.overallGrade = defaultGrade;
+            cardData.ngaEquivalent = `NGA ${Math.round(defaultGrade)}`;
+            cardData.grades = {
+              centering: { score: defaultGrade, notes: 'Default grade applied.' },
+              corners: { score: defaultGrade, notes: 'Default grade applied.' },
+              edges: { score: defaultGrade, notes: 'Default grade applied.' },
+              surface: { score: defaultGrade, notes: 'Default grade applied.' },
+              printQuality: { score: defaultGrade, notes: 'Default grade applied.' }
+            };
+            cardData.summary = 'Card graded via bulk upload with default grade.';
+          }
+
+          // Add images
+          cardData.frontImage = item.base64;
+          cardData.backImage = null;
+          cardData.manuallyAdjusted = gradeMode === 'skip';
+
+          // Save to collection
+          const saveRes = await fetch('/api/collection', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ card: cardData })
+          });
+
+          if (saveRes.ok) {
+            item.status = 'done';
+            successCount++;
+          } else {
+            item.status = 'error';
+            errorCount++;
+          }
+        } catch (e) {
+          console.error('Error processing card:', e);
+          item.status = 'error';
+          errorCount++;
+        }
+
+        renderBulkQueue();
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🚀 Process & Save All';
+      progressDiv.classList.add('hidden');
+
+      // Show results
+      const resultsDiv = document.getElementById('bulk-results');
+      const resultsText = document.getElementById('bulk-results-text');
+      resultsDiv.classList.remove('hidden');
+      resultsText.textContent = `Successfully saved ${successCount} card${successCount !== 1 ? 's' : ''}${errorCount > 0 ? `. ${errorCount} failed.` : '!'}`;
+
+      // Reload collection
+      await loadCollectionFromServer();
+    }
+
+    window.clearBulkQueue = clearBulkQueue;
+    window.processBulkUpload = processBulkUpload;
+    window.viewCollection = viewCollection;
 
     document.getElementById('show-signup').addEventListener('click', () => {
       loginForm.classList.add('hidden');
@@ -2341,13 +2652,4 @@
     
     // Function to update card info when user edits fields
     window.updateCardInfo = function(field, value) {
-      if (currentGradingResult && currentGradingResult.cardIdentification) {
-        currentGradingResult.cardIdentification[field] = value.toUpperCase();
-      }
-    };
-
-    initUploadZones();
-    checkAuth();
-  </script>
-</body>
-</html>
+      if 
