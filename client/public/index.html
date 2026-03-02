@@ -2652,4 +2652,33 @@
     
     // Function to update card info when user edits fields
     window.updateCardInfo = function(field, value) {
-      if 
+      if (currentGradingResult && currentGradingResult.cardIdentification) {
+        currentGradingResult.cardIdentification[field] = value;
+      }
+    };
+
+    // Check for existing token
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      token = savedToken;
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.user) {
+          currentUser = data.user;
+          showApp();
+        } else {
+          localStorage.removeItem('token');
+          token = null;
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        token = null;
+      });
+    }
+  </script>
+</body>
+</html>
