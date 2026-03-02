@@ -2690,8 +2690,16 @@
       let successCount = 0;
       let errorCount = 0;
 
+      // Helper to add delay between API calls
+      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
       for (let i = 0; i < pairedCards.length; i++) {
         const item = pairedCards[i];
+        
+        // Add delay between cards to prevent API rate limiting (skip first card)
+        if (i > 0 && gradeMode !== 'identify-only') {
+          await delay(1500); // 1.5 second delay between AI calls
+        }
         
         // Update status in original queue
         const originalItem = bulkQueue.find(q => q.id === item.id);
@@ -3017,6 +3025,9 @@
         currentGradingResult.cardIdentification[field] = value;
       }
     };
+
+    // Initialize upload zones
+    initUploadZones();
 
     // Check for existing token
     const savedToken = localStorage.getItem('token');
