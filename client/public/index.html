@@ -92,6 +92,17 @@
       color: rgba(255,255,255,0.4);
     }
 
+    select.form-input {
+      background-color: #1a3a5c;
+      cursor: pointer;
+    }
+
+    select.form-input option {
+      background-color: #1a3a5c;
+      color: white;
+      padding: 12px;
+    }
+
     .btn {
       width: 100%;
       padding: 16px;
@@ -2745,7 +2756,35 @@
                 }
               }
             } else {
-              throw new Error('Failed to analyze card');
+              // Fallback to identify-only if full grading fails
+              console.warn('Full writeup failed, falling back to identify-only');
+              const identifyRes = await fetch('/api/identify-only', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ frontImage: item.base64 })
+              });
+              
+              if (identifyRes.ok) {
+                cardData = await identifyRes.json();
+              } else {
+                // Last resort fallback
+                const cleanName = (item.displayName || item.name).replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim();
+                cardData = { cardIdentification: { playerOrCharacter: cleanName } };
+              }
+              
+              cardData.overallGrade = defaultGrade;
+              cardData.ngaEquivalent = `NGA ${Math.round(defaultGrade)}`;
+              cardData.grades = {
+                centering: { score: defaultGrade, notes: 'Default grade applied.' },
+                corners: { score: defaultGrade, notes: 'Default grade applied.' },
+                edges: { score: defaultGrade, notes: 'Default grade applied.' },
+                surface: { score: defaultGrade, notes: 'Default grade applied.' },
+                printQuality: { score: defaultGrade, notes: 'Default grade applied.' }
+              };
+              cardData.summary = 'Card graded via bulk upload with default grade.';
             }
             
           } else {
@@ -2811,11 +2850,13 @@
             if (originalItem) originalItem.status = 'done';
             successCount++;
           } else {
+            const errorData = await saveRes.json().catch(() => ({}));
+            console.error('Save failed:', errorData);
             if (originalItem) originalItem.status = 'error';
             errorCount++;
           }
         } catch (e) {
-          console.error('Error processing card:', e);
+          console.error('Error processing card:', e.message || e);
           if (originalItem) originalItem.status = 'error';
           errorCount++;
         }
