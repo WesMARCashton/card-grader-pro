@@ -2692,13 +2692,39 @@
 
       // Helper to add delay between API calls
       const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      
+      // Helper to make API call with retry
+      async function fetchWithRetry(url, options, maxRetries = 2) {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const res = await fetch(url, options);
+            if (res.ok) return res;
+            
+            // If server error (500), wait and retry
+            if (res.status >= 500 && attempt < maxRetries) {
+              console.log(`Server error, retrying in 3s... (attempt ${attempt + 1})`);
+              await delay(3000);
+              continue;
+            }
+            return res; // Return failed response if not retrying
+          } catch (e) {
+            if (attempt < maxRetries) {
+              console.log(`Network error, retrying in 3s... (attempt ${attempt + 1})`);
+              await delay(3000);
+              continue;
+            }
+            throw e;
+          }
+        }
+      }
 
       for (let i = 0; i < pairedCards.length; i++) {
         const item = pairedCards[i];
         
-        // Add delay between cards to prevent API rate limiting (skip first card)
-        if (i > 0 && gradeMode !== 'identify-only') {
-          await delay(1500); // 1.5 second delay between AI calls
+        // Add delay between cards to prevent API rate limiting and memory issues
+        if (i > 0) {
+          progressText.textContent = `Waiting before next card...`;
+          await delay(3000); // 3 second delay between cards
         }
         
         // Update status in original queue
@@ -2706,7 +2732,7 @@
         if (originalItem) originalItem.status = 'processing';
         renderBulkQueue();
 
-        progressText.textContent = `Processing ${item.displayName || item.name}...`;
+        progressText.textContent = `Processing ${item.displayName || item.name}... (${i + 1}/${pairedCards.length})`;
         progressCount.textContent = `${i + 1}/${pairedCards.length}`;
         progressBar.style.width = `${((i + 1) / pairedCards.length) * 100}%`;
 
@@ -2715,7 +2741,7 @@
 
           if (gradeMode === 'ai') {
             // Full AI grading - AI sets the grades
-            const gradeRes = await fetch('/api/grade', {
+            const gradeRes = await fetchWithRetry('/api/grade', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2727,15 +2753,15 @@
               })
             });
 
-            if (!gradeRes.ok) {
-              throw new Error('Failed to grade');
+            if (gradeRes && gradeRes.ok) {
+              cardData = await gradeRes.json();
+            } else {
+              throw new Error('Grading failed after retries');
             }
-
-            cardData = await gradeRes.json();
             
           } else if (gradeMode === 'full-writeup') {
             // AI does full analysis but we override the grades
-            const gradeRes = await fetch('/api/grade', {
+            const gradeRes = await fetchWithRetry('/api/grade', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2747,7 +2773,7 @@
               })
             });
 
-            if (gradeRes.ok) {
+            if (gradeRes && gradeRes.ok) {
               cardData = await gradeRes.json();
               
               // Keep the AI's identification, summary, and notes but override grades
@@ -2759,14 +2785,13 @@
                 for (const category of ['centering', 'corners', 'edges', 'surface', 'printQuality']) {
                   if (cardData.grades[category]) {
                     cardData.grades[category].score = defaultGrade;
-                    // Keep the AI's notes - they describe the card condition
                   }
                 }
               }
             } else {
               // Fallback to identify-only if full grading fails
               console.warn('Full writeup failed, falling back to identify-only');
-              const identifyRes = await fetch('/api/identify-only', {
+              const identifyRes = await fetchWithRetry('/api/identify-only', {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -2775,7 +2800,7 @@
                 body: JSON.stringify({ frontImage: item.base64 })
               });
               
-              if (identifyRes.ok) {
+              if (identifyRes && identifyRes.ok) {
                 cardData = await identifyRes.json();
               } else {
                 // Last resort fallback
@@ -2797,7 +2822,8 @@
             
           } else {
             // identify-only mode - just get card info, no condition analysis
-            const identifyRes = await fetch('/api/identify-only', {
+            console.log('Calling identify-only API for:', item.displayName || item.name);
+            const identifyRes = await fetchWithRetry('/api/identify-only', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2808,9 +2834,14 @@
               })
             });
 
-            if (identifyRes.ok) {
+            console.log('Identify response status:', identifyRes?.status);
+            
+            if (identifyRes && identifyRes.ok) {
               cardData = await identifyRes.json();
+              console.log('Identify success:', cardData?.cardIdentification?.playerOrCharacter);
             } else {
+              const errText = identifyRes ? await identifyRes.text().catch(() => 'unknown error') : 'no response';
+              console.error('Identify failed:', errText);
               // Fallback - create minimal card data from filename
               const cleanName = (item.displayName || item.name)
                 .replace(/\.[^.]+$/, '')
