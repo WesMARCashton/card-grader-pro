@@ -2464,33 +2464,61 @@
         }
       }
       
+      // Helper: extract base name and number from filename
+      function parseFilename(name) {
+        const lower = name.toLowerCase();
+        const withoutExt = lower.replace(/\.[^.]+$/, '');
+        
+        // Check for front/back keywords
+        const hasFront = lower.includes('front');
+        const hasBack = lower.includes('back');
+        
+        // Extract trailing number (e.g., "0202-01" -> base="0202", num=1)
+        const match = withoutExt.match(/^(.+?)[-_]?(\d+)$/);
+        if (match) {
+          return {
+            base: match[1].replace(/[-_\s]+$/, ''),
+            num: parseInt(match[2]),
+            hasFront,
+            hasBack,
+            raw: withoutExt
+          };
+        }
+        
+        // Just a number (e.g., "23" -> base="", num=23)
+        const numOnly = withoutExt.match(/^(\d+)$/);
+        if (numOnly) {
+          return {
+            base: '',
+            num: parseInt(numOnly[1]),
+            hasFront,
+            hasBack,
+            raw: withoutExt
+          };
+        }
+        
+        return {
+          base: withoutExt.replace(/front|back/gi, '').replace(/[-_\s]+/g, ' ').trim(),
+          num: null,
+          hasFront,
+          hasBack,
+          raw: withoutExt
+        };
+      }
+      
       // Then, try filename-based pairing for unpaired items
+      // First pass: explicit front/back keywords
       for (const item of bulkQueue) {
         if (used.has(item.id)) continue;
         
-        const nameLower = item.name.toLowerCase();
-        const isFront = nameLower.includes('front');
-        const isBack = nameLower.includes('back');
+        const parsed = parseFilename(item.name);
         
-        if (isFront) {
-          // This is a front, look for matching back
-          const baseName = item.name.toLowerCase()
-            .replace(/front/gi, '')
-            .replace(/\.[^.]+$/, '')  // remove extension
-            .replace(/[-_\s]+/g, ' ')  // normalize separators
-            .trim();
-          
-          // Find matching back
+        if (parsed.hasFront) {
+          // Find matching back with same base
           const matchingBack = bulkQueue.find(other => {
             if (used.has(other.id) || other.id === item.id) return false;
-            const otherLower = other.name.toLowerCase();
-            if (!otherLower.includes('back')) return false;
-            const otherBase = otherLower
-              .replace(/back/gi, '')
-              .replace(/\.[^.]+$/, '')
-              .replace(/[-_\s]+/g, ' ')
-              .trim();
-            return otherBase === baseName;
+            const otherParsed = parseFilename(other.name);
+            return otherParsed.hasBack && otherParsed.base === parsed.base;
           });
           
           used.add(item.id);
@@ -2501,27 +2529,69 @@
               backImage: matchingBack.base64,
               backPreview: matchingBack.preview,
               backName: matchingBack.name,
-              displayName: baseName || item.name
+              displayName: parsed.base || item.name
             });
           } else {
             paired.push({
               ...item,
-              displayName: baseName || item.name
+              displayName: parsed.base || item.name
             });
           }
-        } else if (isBack) {
-          // Skip backs for now, they'll be matched with fronts
-          continue;
-        } else {
-          // No front/back indicator, treat as front only
-          used.add(item.id);
-          paired.push(item);
         }
       }
       
-      // Add any remaining backs that weren't paired (treat as front-only cards)
+      // Second pass: sequential numbers (01/02, 23/24, etc.)
+      // Assume odd/lower number is front, even/higher is back (common convention)
+      const remaining = bulkQueue.filter(item => !used.has(item.id));
+      const byBaseAndNum = {};
+      
+      for (const item of remaining) {
+        const parsed = parseFilename(item.name);
+        if (parsed.num !== null) {
+          const key = parsed.base || '__numbered__';
+          if (!byBaseAndNum[key]) byBaseAndNum[key] = [];
+          byBaseAndNum[key].push({ item, parsed });
+        }
+      }
+      
+      // For each base, pair sequential numbers
+      for (const key of Object.keys(byBaseAndNum)) {
+        const items = byBaseAndNum[key].sort((a, b) => a.parsed.num - b.parsed.num);
+        
+        for (let i = 0; i < items.length; i++) {
+          const current = items[i];
+          if (used.has(current.item.id)) continue;
+          
+          // Look for next sequential number as potential back
+          const next = items.find(other => 
+            !used.has(other.item.id) && 
+            other.parsed.num === current.parsed.num + 1
+          );
+          
+          used.add(current.item.id);
+          
+          if (next) {
+            used.add(next.item.id);
+            paired.push({
+              ...current.item,
+              backImage: next.item.base64,
+              backPreview: next.item.preview,
+              backName: next.item.name,
+              displayName: current.parsed.base || `Card ${current.parsed.num}`
+            });
+          } else {
+            paired.push({
+              ...current.item,
+              displayName: current.parsed.base || current.item.name
+            });
+          }
+        }
+      }
+      
+      // Add any remaining unpaired items
       for (const item of bulkQueue) {
         if (!used.has(item.id)) {
+          used.add(item.id);
           paired.push(item);
         }
       }
