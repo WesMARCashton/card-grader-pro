@@ -85,6 +85,8 @@ async function connectToMongoDB() {
     await usersCollection.createIndex({ email: 1 }, { unique: true });
     await usersCollection.createIndex({ verificationToken: 1 });
     await cardsCollection.createIndex({ userEmail: 1 });
+    await cardsCollection.createIndex({ userEmail: 1, savedAt: -1 }); // Compound index for sorted queries
+    await cardsCollection.createIndex({ savedAt: -1 }); // Index for admin sort
     
     console.log('✅ Connected to MongoDB');
     
@@ -516,6 +518,7 @@ app.get('/api/collection', authenticateToken, async (req, res) => {
     const cards = await cardsCollection
       .find({ userEmail: req.user.email })
       .sort({ savedAt: -1 })
+      .limit(500) // Limit to prevent memory issues
       .toArray();
     
     // Transform _id to id for frontend compatibility
@@ -1396,7 +1399,7 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
 }`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1509,7 +1512,7 @@ If you can't determine if something is front or back, treat it as a front.`;
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
