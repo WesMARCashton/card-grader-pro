@@ -347,6 +347,17 @@
       overflow-y: auto;
     }
 
+    .bulk-actions-bar {
+      background: linear-gradient(135deg, #1a3a5c 0%, #2d5a87 100%);
+      border: 1px solid #f0b323;
+      border-radius: 12px;
+      padding: 16px 24px;
+      margin-bottom: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
     .modal {
       background: linear-gradient(135deg, #2d5a87 0%, #1a3a5c 100%);
       border: 1px solid rgba(255,255,255,0.1);
@@ -639,9 +650,26 @@
 
       <!-- Cards Table -->
       <div id="cards-tab" class="table-container hidden">
+        <!-- Bulk Actions Toolbar -->
+        <div id="bulk-actions-bar" class="bulk-actions-bar hidden">
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <span id="selected-count" style="font-weight: 600; color: #f0b323;">0 cards selected</span>
+            <button class="btn btn-primary" onclick="openBulkEditModal()" style="padding: 8px 16px;">
+              ✏️ Bulk Edit Grades
+            </button>
+            <button class="btn btn-success" onclick="bulkSyncToSheet()" style="padding: 8px 16px;">
+              📊 Bulk Sync to Sheet
+            </button>
+            <button class="btn btn-secondary" onclick="clearSelection()" style="padding: 8px 16px;">
+              ✕ Clear Selection
+            </button>
+          </div>
+        </div>
+        
         <table>
           <thead>
             <tr>
+              <th style="width: 40px;"><input type="checkbox" id="select-all-cards" onchange="toggleSelectAll(this)"></th>
               <th>Card</th>
               <th>Player/Character</th>
               <th>Set</th>
@@ -654,6 +682,67 @@
           <tbody id="cards-table-body">
           </tbody>
         </table>
+      </div>
+
+      <!-- Bulk Edit Modal -->
+      <div id="bulk-edit-modal" class="modal-overlay hidden">
+        <div class="modal" style="max-width: 500px;">
+          <div class="modal-header">
+            <h2>Bulk Edit Grades</h2>
+            <button class="modal-close" onclick="closeBulkEditModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="margin-bottom: 20px; color: rgba(255,255,255,0.6);">
+              Set grades for <span id="bulk-edit-count" style="color: #f0b323; font-weight: 600;">0</span> selected cards
+            </p>
+            
+            <div style="display: grid; gap: 16px;">
+              <div>
+                <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 8px;">OVERALL GRADE</label>
+                <input type="number" id="bulk-overall-grade" class="form-input" value="10" min="1" max="10" step="0.5" style="font-size: 24px; text-align: center; font-weight: 700;">
+              </div>
+              
+              <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
+                <label style="font-size: 12px; color: rgba(255,255,255,0.5); display: block; margin-bottom: 12px;">
+                  <input type="checkbox" id="bulk-edit-subcategories" checked style="margin-right: 8px;">
+                  Also set all subcategory grades to match
+                </label>
+              </div>
+              
+              <div id="bulk-subcategories" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                  <label style="font-size: 11px; color: rgba(255,255,255,0.4);">CENTERING</label>
+                  <input type="number" id="bulk-centering" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center;">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: rgba(255,255,255,0.4);">CORNERS</label>
+                  <input type="number" id="bulk-corners" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center;">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: rgba(255,255,255,0.4);">EDGES</label>
+                  <input type="number" id="bulk-edges" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center;">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: rgba(255,255,255,0.4);">SURFACE</label>
+                  <input type="number" id="bulk-surface" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center;">
+                </div>
+                <div>
+                  <label style="font-size: 11px; color: rgba(255,255,255,0.4);">PRINT QUALITY</label>
+                  <input type="number" id="bulk-printQuality" class="form-input" value="10" min="1" max="10" step="0.5" style="text-align: center;">
+                </div>
+              </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+              <button class="btn btn-primary" onclick="applyBulkEdit()" style="flex: 1;">
+                ✓ Apply to Selected Cards
+              </button>
+              <button class="btn btn-secondary" onclick="closeBulkEditModal()" style="flex: 1;">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Admins Tab -->
@@ -1127,26 +1216,29 @@
       const tbody = document.getElementById('cards-table-body');
       
       if (!cards || cards.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">No cards found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.4);">No cards found</td></tr>';
         return;
       }
       
       tbody.innerHTML = cards.map(card => `
-        <tr onclick="viewCardDetails('${card.id}')" style="cursor: pointer;">
-          <td>
+        <tr style="cursor: pointer;">
+          <td onclick="event.stopPropagation();">
+            <input type="checkbox" class="card-checkbox" data-card-id="${card.id}" onchange="updateSelection()">
+          </td>
+          <td onclick="viewCardDetails('${card.id}')">
             ${card.frontImageUrl ? 
               `<img src="${card.frontImageUrl}" class="card-preview" alt="Card" style="width: 50px; height: 70px; object-fit: cover; border-radius: 4px;">` :
               `<div style="width: 50px; height: 70px; background: linear-gradient(135deg, #2d5a87 0%, #1a3a5c 100%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px;">🎴</div>`
             }
           </td>
-          <td>${card.cardIdentification?.playerOrCharacter || 'Unknown'}</td>
-          <td>${card.cardIdentification?.cardSet || '-'}</td>
-          <td><span class="badge badge-grade" style="background: ${getGradeColor(card.overallGrade)}30; color: ${getGradeColor(card.overallGrade)};">${card.overallGrade}</span></td>
-          <td>
+          <td onclick="viewCardDetails('${card.id}')">${card.cardIdentification?.playerOrCharacter || 'Unknown'}</td>
+          <td onclick="viewCardDetails('${card.id}')">${card.cardIdentification?.cardSet || '-'}</td>
+          <td onclick="viewCardDetails('${card.id}')"><span class="badge badge-grade" style="background: ${getGradeColor(card.overallGrade)}30; color: ${getGradeColor(card.overallGrade)};">${card.overallGrade}</span></td>
+          <td onclick="viewCardDetails('${card.id}')">
             <div>${card.userName || '-'}</div>
             <div style="font-size: 11px; color: rgba(255,255,255,0.4);">${card.userEmail}</div>
           </td>
-          <td>
+          <td onclick="viewCardDetails('${card.id}')">
             ${new Date(card.savedAt).toLocaleDateString()}
             ${card.syncedToSheet ? '<span style="color: #6ee7b7; font-size: 10px; display: block;">✓ synced</span>' : '<span style="color: #fbbf24; font-size: 10px; display: block;">⏳ pending</span>'}
           </td>
@@ -1157,6 +1249,10 @@
           </td>
         </tr>
       `).join('');
+      
+      // Reset select all checkbox
+      document.getElementById('select-all-cards').checked = false;
+      updateSelection();
     }
 
     function getGradeColor(grade) {
@@ -1766,6 +1862,237 @@
         alert('Script copied to clipboard!');
       });
     }
+
+    // ========== BULK EDIT FUNCTIONS ==========
+    
+    let selectedCardIds = [];
+
+    function toggleSelectAll(checkbox) {
+      const cardCheckboxes = document.querySelectorAll('.card-checkbox');
+      cardCheckboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+      });
+      updateSelection();
+    }
+
+    function updateSelection() {
+      const checkboxes = document.querySelectorAll('.card-checkbox:checked');
+      selectedCardIds = Array.from(checkboxes).map(cb => cb.dataset.cardId);
+      
+      const bulkBar = document.getElementById('bulk-actions-bar');
+      const countSpan = document.getElementById('selected-count');
+      
+      if (selectedCardIds.length > 0) {
+        bulkBar.classList.remove('hidden');
+        countSpan.textContent = `${selectedCardIds.length} card${selectedCardIds.length > 1 ? 's' : ''} selected`;
+      } else {
+        bulkBar.classList.add('hidden');
+      }
+    }
+
+    function clearSelection() {
+      const checkboxes = document.querySelectorAll('.card-checkbox');
+      checkboxes.forEach(cb => cb.checked = false);
+      document.getElementById('select-all-cards').checked = false;
+      updateSelection();
+    }
+
+    function openBulkEditModal() {
+      if (selectedCardIds.length === 0) {
+        alert('Please select at least one card');
+        return;
+      }
+      document.getElementById('bulk-edit-count').textContent = selectedCardIds.length;
+      document.getElementById('bulk-edit-modal').classList.remove('hidden');
+    }
+
+    function closeBulkEditModal() {
+      document.getElementById('bulk-edit-modal').classList.add('hidden');
+    }
+
+    async function applyBulkEdit() {
+      const overallGrade = parseFloat(document.getElementById('bulk-overall-grade').value) || 10;
+      const setSubcategories = document.getElementById('bulk-edit-subcategories').checked;
+      
+      let grades = null;
+      if (setSubcategories) {
+        const centering = parseFloat(document.getElementById('bulk-centering').value) || overallGrade;
+        const corners = parseFloat(document.getElementById('bulk-corners').value) || overallGrade;
+        const edges = parseFloat(document.getElementById('bulk-edges').value) || overallGrade;
+        const surface = parseFloat(document.getElementById('bulk-surface').value) || overallGrade;
+        const printQuality = parseFloat(document.getElementById('bulk-printQuality').value) || overallGrade;
+        
+        grades = {
+          centering: { score: centering, notes: generateGradeNote('centering', centering) },
+          corners: { score: corners, notes: generateGradeNote('corners', corners) },
+          edges: { score: edges, notes: generateGradeNote('edges', edges) },
+          surface: { score: surface, notes: generateGradeNote('surface', surface) },
+          printQuality: { score: printQuality, notes: generateGradeNote('printQuality', printQuality) }
+        };
+      }
+      
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const cardId of selectedCardIds) {
+        try {
+          const res = await fetch(`/api/admin/cards/${cardId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ grades, overallGrade })
+          });
+          
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (e) {
+          errorCount++;
+        }
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '✓ Apply to Selected Cards';
+      
+      closeBulkEditModal();
+      clearSelection();
+      await loadCards();
+      
+      if (currentFilterEmail) {
+        viewUserCollection(currentFilterEmail, currentFilterName);
+      }
+      
+      alert(`✓ Updated ${successCount} card${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+    }
+
+    function generateGradeNote(category, score) {
+      const roundedScore = Math.round(score);
+      const descriptions = {
+        centering: {
+          10: 'Perfect centering on all sides.',
+          9: 'Excellent centering with minimal deviation.',
+          8: 'Good centering with slight variation.',
+          7: 'Acceptable centering with noticeable variation.',
+          6: 'Moderate centering issues.',
+          5: 'Visible centering problems.',
+          4: 'Poor centering.',
+          3: 'Significant centering issues.',
+          2: 'Major centering problems.',
+          1: 'Severe centering defects.'
+        },
+        corners: {
+          10: 'Sharp, perfect corners.',
+          9: 'Nearly perfect corners with minimal wear.',
+          8: 'Sharp corners with slight touches.',
+          7: 'Minor corner wear visible.',
+          6: 'Light corner wear present.',
+          5: 'Moderate corner wear.',
+          4: 'Noticeable corner wear.',
+          3: 'Significant corner wear.',
+          2: 'Heavy corner wear.',
+          1: 'Severe corner damage.'
+        },
+        edges: {
+          10: 'Perfect edges throughout.',
+          9: 'Nearly perfect edges.',
+          8: 'Crisp edges with minimal wear.',
+          7: 'Minor edge wear.',
+          6: 'Light edge wear visible.',
+          5: 'Moderate edge wear.',
+          4: 'Noticeable edge wear.',
+          3: 'Significant edge wear.',
+          2: 'Heavy edge wear.',
+          1: 'Severe edge damage.'
+        },
+        surface: {
+          10: 'Flawless surface condition.',
+          9: 'Nearly flawless surface.',
+          8: 'Excellent surface with minor imperfections.',
+          7: 'Good surface condition.',
+          6: 'Light surface wear.',
+          5: 'Moderate surface wear.',
+          4: 'Noticeable surface issues.',
+          3: 'Significant surface wear.',
+          2: 'Heavy surface wear.',
+          1: 'Severe surface damage.'
+        },
+        printQuality: {
+          10: 'Perfect print quality.',
+          9: 'Excellent print quality.',
+          8: 'Very good print quality.',
+          7: 'Good print quality.',
+          6: 'Acceptable print quality.',
+          5: 'Moderate print issues.',
+          4: 'Noticeable print defects.',
+          3: 'Significant print issues.',
+          2: 'Major print defects.',
+          1: 'Severe print problems.'
+        }
+      };
+      return descriptions[category]?.[roundedScore] || `Grade ${score} condition.`;
+    }
+
+    async function bulkSyncToSheet() {
+      if (selectedCardIds.length === 0) {
+        alert('Please select at least one card');
+        return;
+      }
+      
+      if (!confirm(`Sync ${selectedCardIds.length} card${selectedCardIds.length > 1 ? 's' : ''} to Google Sheet?`)) {
+        return;
+      }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const cardId of selectedCardIds) {
+        try {
+          const res = await fetch('/api/sync-to-sheet', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ cardId, forceSync: true })
+          });
+          
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (e) {
+          errorCount++;
+        }
+      }
+      
+      clearSelection();
+      await loadCards();
+      
+      if (currentFilterEmail) {
+        viewUserCollection(currentFilterEmail, currentFilterName);
+      }
+      
+      alert(`✓ Synced ${successCount} card${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+    }
+
+    // Update subcategory fields when overall grade changes
+    document.getElementById('bulk-overall-grade')?.addEventListener('change', function() {
+      const grade = parseFloat(this.value) || 10;
+      document.getElementById('bulk-centering').value = grade;
+      document.getElementById('bulk-corners').value = grade;
+      document.getElementById('bulk-edges').value = grade;
+      document.getElementById('bulk-surface').value = grade;
+      document.getElementById('bulk-printQuality').value = grade;
+    });
 
     // Enter key for login
     document.getElementById('login-password').addEventListener('keypress', (e) => {
