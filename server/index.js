@@ -1341,7 +1341,7 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1358,9 +1358,12 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   );
 
   const data = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message || 'Gemini API request failed');
+  
+  // Log the full response for debugging
+  if (!response.ok || data.error) {
+    console.error('Gemini API Error - Status:', response.status);
+    console.error('Gemini API Error - Response:', JSON.stringify(data, null, 2));
+    throw new Error(data.error?.message || `Gemini API request failed with status ${response.status}`);
   }
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -1524,7 +1527,7 @@ If you can't determine if something is front or back, treat it as a front.`;
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1585,6 +1588,13 @@ app.get('*', (req, res) => {
 
 // Start server
 connectToMongoDB().then(() => {
+  // Check for required environment variables
+  if (!process.env.GEMINI_API_KEY) {
+    console.error('⚠️ WARNING: GEMINI_API_KEY is not set! AI grading will not work.');
+  } else {
+    console.log('✅ GEMINI_API_KEY is configured (starts with:', process.env.GEMINI_API_KEY.substring(0, 8) + '...)');
+  }
+  
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🎴 NGA server running on http://localhost:${PORT}`);
   });
