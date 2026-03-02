@@ -1103,12 +1103,19 @@
         <div id="bulk-queue" class="result-card hidden">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3>Upload Queue (<span id="bulk-queue-count">0</span> cards)</h3>
-            <div>
-              <button class="btn btn-secondary" onclick="clearBulkQueue()" style="margin-right: 8px;">Clear All</button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-secondary" onclick="aiPairCards()" id="ai-pair-btn" style="background: linear-gradient(135deg, #f0b323 0%, #d4a01d 100%); color: #1a3a5c;">
+                🤖 AI Pair Fronts/Backs
+              </button>
+              <button class="btn btn-secondary" onclick="clearBulkQueue()">Clear All</button>
               <button class="btn btn-primary" id="process-bulk-btn" onclick="processBulkUpload()">
                 🚀 Process & Save All
               </button>
             </div>
+          </div>
+          
+          <div id="ai-pair-status" class="hidden" style="background: rgba(240,179,35,0.1); border: 1px solid rgba(240,179,35,0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <span id="ai-pair-status-text">🤖 AI is analyzing and pairing your cards...</span>
           </div>
           
           <div id="bulk-progress" class="hidden" style="margin-bottom: 16px;">
@@ -2431,6 +2438,97 @@
       e.target.value = '';
     }
 
+    // Pair front and back images based on filename OR AI pairing
+    function pairFrontBackImages() {
+      const paired = [];
+      const used = new Set();
+      
+      // First, collect AI-paired items
+      for (const item of bulkQueue) {
+        if (used.has(item.id)) continue;
+        
+        if (item.aiPaired && item.isFront) {
+          // This is an AI-paired front with back already attached
+          used.add(item.id);
+          paired.push(item);
+          
+          // Mark the back as used too
+          const backItem = bulkQueue.find(q => q.pairedWithId === item.id);
+          if (backItem) used.add(backItem.id);
+          continue;
+        }
+        
+        if (item.aiPaired && item.isBack) {
+          // Skip - this back is paired with a front
+          continue;
+        }
+      }
+      
+      // Then, try filename-based pairing for unpaired items
+      for (const item of bulkQueue) {
+        if (used.has(item.id)) continue;
+        
+        const nameLower = item.name.toLowerCase();
+        const isFront = nameLower.includes('front');
+        const isBack = nameLower.includes('back');
+        
+        if (isFront) {
+          // This is a front, look for matching back
+          const baseName = item.name.toLowerCase()
+            .replace(/front/gi, '')
+            .replace(/\.[^.]+$/, '')  // remove extension
+            .replace(/[-_\s]+/g, ' ')  // normalize separators
+            .trim();
+          
+          // Find matching back
+          const matchingBack = bulkQueue.find(other => {
+            if (used.has(other.id) || other.id === item.id) return false;
+            const otherLower = other.name.toLowerCase();
+            if (!otherLower.includes('back')) return false;
+            const otherBase = otherLower
+              .replace(/back/gi, '')
+              .replace(/\.[^.]+$/, '')
+              .replace(/[-_\s]+/g, ' ')
+              .trim();
+            return otherBase === baseName;
+          });
+          
+          used.add(item.id);
+          if (matchingBack) {
+            used.add(matchingBack.id);
+            paired.push({
+              ...item,
+              backImage: matchingBack.base64,
+              backPreview: matchingBack.preview,
+              backName: matchingBack.name,
+              displayName: baseName || item.name
+            });
+          } else {
+            paired.push({
+              ...item,
+              displayName: baseName || item.name
+            });
+          }
+        } else if (isBack) {
+          // Skip backs for now, they'll be matched with fronts
+          continue;
+        } else {
+          // No front/back indicator, treat as front only
+          used.add(item.id);
+          paired.push(item);
+        }
+      }
+      
+      // Add any remaining backs that weren't paired (treat as front-only cards)
+      for (const item of bulkQueue) {
+        if (!used.has(item.id)) {
+          paired.push(item);
+        }
+      }
+      
+      return paired;
+    }
+
     function renderBulkQueue() {
       const queueDiv = document.getElementById('bulk-queue');
       const listDiv = document.getElementById('bulk-queue-list');
@@ -2441,21 +2539,28 @@
         return;
       }
 
+      // Pair images
+      const pairedCards = pairFrontBackImages();
+      
       queueDiv.classList.remove('hidden');
-      countSpan.textContent = bulkQueue.length;
+      countSpan.textContent = pairedCards.length;
 
-      listDiv.innerHTML = bulkQueue.map(item => `
-        <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05);">
-          <img src="${item.preview}" style="width: 100%; height: 150px; object-fit: cover;">
+      listDiv.innerHTML = pairedCards.map(item => `
+        <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05);" data-card-id="${item.id}">
+          <div style="display: flex;">
+            <img src="${item.preview}" style="width: ${item.backPreview ? '50%' : '100%'}; height: 150px; object-fit: cover;">
+            ${item.backPreview ? `<img src="${item.backPreview}" style="width: 50%; height: 150px; object-fit: cover; border-left: 1px solid rgba(255,255,255,0.2);">` : ''}
+          </div>
           <div style="position: absolute; top: 4px; right: 4px;">
-            ${item.status === 'pending' ? '<span style="background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; font-size: 10px;">Pending</span>' : ''}
+            ${item.backPreview ? '<span style="background: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Front + Back</span>' : ''}
+            ${item.status === 'pending' && !item.backPreview ? '<span style="background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; font-size: 10px;">Front Only</span>' : ''}
             ${item.status === 'processing' ? '<span style="background: #f0b323; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Processing...</span>' : ''}
             ${item.status === 'done' ? '<span style="background: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px;">✓ Done</span>' : ''}
             ${item.status === 'error' ? '<span style="background: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Error</span>' : ''}
           </div>
           <button onclick="removeFromBulkQueue('${item.id}')" style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.6); border: none; color: white; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px;">×</button>
           <div style="padding: 6px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            ${item.name}
+            ${item.displayName || item.name}
           </div>
         </div>
       `).join('');
@@ -2473,7 +2578,10 @@
     }
 
     async function processBulkUpload() {
-      if (bulkQueue.length === 0) {
+      // Use paired cards instead of raw queue
+      const pairedCards = pairFrontBackImages();
+      
+      if (pairedCards.length === 0) {
         alert('Please add some cards first');
         return;
       }
@@ -2495,14 +2603,17 @@
       let successCount = 0;
       let errorCount = 0;
 
-      for (let i = 0; i < bulkQueue.length; i++) {
-        const item = bulkQueue[i];
-        item.status = 'processing';
+      for (let i = 0; i < pairedCards.length; i++) {
+        const item = pairedCards[i];
+        
+        // Update status in original queue
+        const originalItem = bulkQueue.find(q => q.id === item.id);
+        if (originalItem) originalItem.status = 'processing';
         renderBulkQueue();
 
-        progressText.textContent = `Processing ${item.name}...`;
-        progressCount.textContent = `${i + 1}/${bulkQueue.length}`;
-        progressBar.style.width = `${((i + 1) / bulkQueue.length) * 100}%`;
+        progressText.textContent = `Processing ${item.displayName || item.name}...`;
+        progressCount.textContent = `${i + 1}/${pairedCards.length}`;
+        progressBar.style.width = `${((i + 1) / pairedCards.length) * 100}%`;
 
         try {
           let cardData;
@@ -2517,7 +2628,7 @@
               },
               body: JSON.stringify({
                 frontImage: item.base64,
-                backImage: null
+                backImage: item.backImage || null
               })
             });
 
@@ -2542,10 +2653,14 @@
             if (identifyRes.ok) {
               cardData = await identifyRes.json();
             } else {
-              // Fallback - create minimal card data
+              // Fallback - create minimal card data from filename
+              const cleanName = (item.displayName || item.name)
+                .replace(/\.[^.]+$/, '')
+                .replace(/[-_]/g, ' ')
+                .trim();
               cardData = {
                 cardIdentification: {
-                  playerOrCharacter: item.name.replace(/\.[^.]+$/, ''),
+                  playerOrCharacter: cleanName,
                   cardSet: '',
                   year: '',
                   cardNumber: ''
@@ -2566,9 +2681,9 @@
             cardData.summary = 'Card graded via bulk upload with default grade.';
           }
 
-          // Add images
+          // Add images (front and back if paired)
           cardData.frontImage = item.base64;
-          cardData.backImage = null;
+          cardData.backImage = item.backImage || null;
           cardData.manuallyAdjusted = gradeMode === 'skip';
 
           // Save to collection
@@ -2582,15 +2697,15 @@
           });
 
           if (saveRes.ok) {
-            item.status = 'done';
+            if (originalItem) originalItem.status = 'done';
             successCount++;
           } else {
-            item.status = 'error';
+            if (originalItem) originalItem.status = 'error';
             errorCount++;
           }
         } catch (e) {
           console.error('Error processing card:', e);
-          item.status = 'error';
+          if (originalItem) originalItem.status = 'error';
           errorCount++;
         }
 
@@ -2611,9 +2726,103 @@
       await loadCollectionFromServer();
     }
 
+    // AI-powered front/back pairing
+    async function aiPairCards() {
+      if (bulkQueue.length < 2) {
+        alert('Need at least 2 images to pair');
+        return;
+      }
+
+      const btn = document.getElementById('ai-pair-btn');
+      const statusDiv = document.getElementById('ai-pair-status');
+      const statusText = document.getElementById('ai-pair-status-text');
+      
+      btn.disabled = true;
+      btn.textContent = '🤖 Analyzing...';
+      statusDiv.classList.remove('hidden');
+      statusText.textContent = '🤖 AI is analyzing your card images to identify fronts and backs...';
+
+      try {
+        // Send all images to AI for pairing
+        const images = bulkQueue.map((item, index) => ({
+          index: index,
+          id: item.id,
+          base64: item.base64,
+          name: item.name
+        }));
+
+        const res = await fetch('/api/ai-pair-cards', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ images })
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to pair cards');
+        }
+
+        const data = await res.json();
+        
+        if (data.pairs && data.pairs.length > 0) {
+          // Apply AI pairing to bulkQueue
+          applyAIPairing(data.pairs);
+          statusText.textContent = `✓ AI paired ${data.pairs.length} cards! Review below and click "Process & Save All"`;
+          statusDiv.style.background = 'rgba(16,185,129,0.1)';
+          statusDiv.style.borderColor = 'rgba(16,185,129,0.3)';
+        } else {
+          statusText.textContent = '⚠️ AI could not find matching pairs. Cards will be processed individually.';
+          statusDiv.style.background = 'rgba(245,158,11,0.1)';
+          statusDiv.style.borderColor = 'rgba(245,158,11,0.3)';
+        }
+      } catch (e) {
+        console.error('AI pairing error:', e);
+        statusText.textContent = '❌ AI pairing failed. Using filename-based pairing instead.';
+        statusDiv.style.background = 'rgba(239,68,68,0.1)';
+        statusDiv.style.borderColor = 'rgba(239,68,68,0.3)';
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🤖 AI Pair Fronts/Backs';
+    }
+
+    function applyAIPairing(pairs) {
+      // Mark items as paired based on AI results
+      const pairedIds = new Set();
+      
+      for (const pair of pairs) {
+        const frontItem = bulkQueue.find(q => q.id == pair.frontId);
+        const backItem = bulkQueue.find(q => q.id == pair.backId);
+        
+        if (frontItem && backItem) {
+          // Mark front with back info
+          frontItem.aiPaired = true;
+          frontItem.backImage = backItem.base64;
+          frontItem.backPreview = backItem.preview;
+          frontItem.backName = backItem.name;
+          frontItem.displayName = pair.cardName || frontItem.name;
+          frontItem.isFront = true;
+          
+          // Mark back as consumed
+          backItem.aiPaired = true;
+          backItem.isBack = true;
+          backItem.pairedWithId = frontItem.id;
+          
+          pairedIds.add(frontItem.id);
+          pairedIds.add(backItem.id);
+        }
+      }
+      
+      // Update the pairing function to respect AI pairs
+      renderBulkQueue();
+    }
+
     window.clearBulkQueue = clearBulkQueue;
     window.processBulkUpload = processBulkUpload;
     window.viewCollection = viewCollection;
+    window.aiPairCards = aiPairCards;
 
     document.getElementById('show-signup').addEventListener('click', () => {
       loginForm.classList.add('hidden');

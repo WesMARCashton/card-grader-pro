@@ -1448,6 +1448,116 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
   }
 });
 
+// AI-powered front/back pairing for bulk upload
+app.post('/api/ai-pair-cards', authenticateToken, async (req, res) => {
+  try {
+    const { images } = req.body;
+
+    if (!images || images.length < 2) {
+      return res.status(400).json({ error: 'Need at least 2 images to pair' });
+    }
+
+    // Limit to prevent huge requests (max 20 images at a time)
+    const imagesToProcess = images.slice(0, 20);
+
+    const systemPrompt = `You are an expert at identifying collectible trading cards. You will be shown multiple card images. Some are FRONTS (showing the main image/player/character) and some are BACKS (showing stats, card number, or card back design).
+
+Your task:
+1. Identify which images are FRONTS and which are BACKS
+2. Match each FRONT with its corresponding BACK based on:
+   - Same player/character name
+   - Same card design style
+   - Same card set/year
+   - Matching card numbers if visible
+
+For each pair you identify, provide:
+- The index of the front image
+- The index of the back image  
+- The card name (player/character)
+
+IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
+{
+  "pairs": [
+    {
+      "frontIndex": 0,
+      "backIndex": 1,
+      "cardName": "Player Name"
+    }
+  ],
+  "unpaired": [2, 5]
+}
+
+The "unpaired" array should contain indices of images that couldn't be matched.
+If an image is clearly a front but has no matching back, don't include it in pairs.
+If you can't determine if something is front or back, treat it as a front.`;
+
+    // Build content parts with all images
+    const contentParts = [
+      { text: systemPrompt },
+      { text: `I have ${imagesToProcess.length} card images. Please analyze them and pair fronts with backs:\n` }
+    ];
+
+    // Add each image with its index
+    for (let i = 0; i < imagesToProcess.length; i++) {
+      contentParts.push({ text: `Image ${i} (filename: ${imagesToProcess[i].name}):` });
+      contentParts.push({
+        inline_data: {
+          mime_type: "image/jpeg",
+          data: imagesToProcess[i].base64
+        }
+      });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: contentParts }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2000
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message || 'Failed to analyze cards');
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    let jsonText = text;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Could not parse pairing response');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    // Convert indices back to IDs
+    const pairs = (result.pairs || []).map(pair => ({
+      frontId: imagesToProcess[pair.frontIndex]?.id,
+      backId: imagesToProcess[pair.backIndex]?.id,
+      cardName: pair.cardName
+    })).filter(p => p.frontId && p.backId);
+
+    res.json({ pairs });
+  } catch (error) {
+    console.error('AI pair error:', error);
+    res.status(500).json({ error: error.message || 'Failed to pair cards' });
+  }
+});
+
 // Serve admin page
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/public/admin.html'));
