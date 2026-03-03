@@ -660,6 +660,9 @@
             <button class="btn btn-success" onclick="bulkSyncToSheet()" style="padding: 8px 16px;">
               📊 Bulk Sync to Sheet
             </button>
+            <button class="btn" onclick="bulkDeleteCards()" style="padding: 8px 16px; background: #ef4444;">
+              🗑️ Bulk Delete
+            </button>
             <button class="btn btn-secondary" onclick="clearSelection()" style="padding: 8px 16px;">
               ✕ Clear Selection
             </button>
@@ -2082,6 +2085,56 @@
       }
       
       alert(`✓ Synced ${successCount} card${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+    }
+
+    async function bulkDeleteCards() {
+      if (selectedCardIds.length === 0) {
+        alert('Please select at least one card');
+        return;
+      }
+      
+      const confirmMsg = `⚠️ DELETE ${selectedCardIds.length} card${selectedCardIds.length > 1 ? 's' : ''}?\n\nThis action cannot be undone!`;
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+      
+      // Double confirm for large deletions
+      if (selectedCardIds.length > 10) {
+        if (!confirm(`Are you SURE you want to delete ${selectedCardIds.length} cards? This is permanent!`)) {
+          return;
+        }
+      }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const cardId of selectedCardIds) {
+        try {
+          const res = await fetch(`/api/admin/cards/${cardId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (e) {
+          errorCount++;
+        }
+      }
+      
+      clearSelection();
+      await loadCards();
+      
+      if (currentFilterEmail) {
+        viewUserCollection(currentFilterEmail, currentFilterName);
+      }
+      
+      alert(`🗑️ Deleted ${successCount} card${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
     }
 
     // Update subcategory fields when overall grade changes
