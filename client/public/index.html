@@ -2456,86 +2456,69 @@
     }
 
     // Pair front and back images based on filename OR AI pairing
+    // Pair front and back images based on filename
+    // Pattern: Card_01 (front) + Card_02 (back), Card_03 (front) + Card_04 (back), etc.
+    // Odd numbers = front, Even numbers = back
     function pairFrontBackImages() {
       const paired = [];
       const used = new Set();
       
-      // First, collect AI-paired items
-      for (const item of bulkQueue) {
-        if (used.has(item.id)) continue;
-        
-        if (item.aiPaired && item.isFront) {
-          // This is an AI-paired front with back already attached
-          used.add(item.id);
-          paired.push(item);
-          
-          // Mark the back as used too
-          const backItem = bulkQueue.find(q => q.pairedWithId === item.id);
-          if (backItem) used.add(backItem.id);
-          continue;
-        }
-        
-        if (item.aiPaired && item.isBack) {
-          // Skip - this back is paired with a front
-          continue;
-        }
-      }
-      
-      // Helper: extract base name and number from filename
-      function parseFilename(name) {
+      // Helper: extract number from filename
+      function extractNumber(name) {
         const lower = name.toLowerCase();
         const withoutExt = lower.replace(/\.[^.]+$/, '');
         
-        // Check for front/back keywords
+        // Check for front/back keywords first
         const hasFront = lower.includes('front');
         const hasBack = lower.includes('back');
         
-        // Extract trailing number (e.g., "0202-01" -> base="0202", num=1)
-        const match = withoutExt.match(/^(.+?)[-_]?(\d+)$/);
+        // Extract number from filename (e.g., "Card_01" -> 1, "card_02" -> 2)
+        const match = withoutExt.match(/(\d+)/);
         if (match) {
           return {
-            base: match[1].replace(/[-_\s]+$/, ''),
-            num: parseInt(match[2]),
+            num: parseInt(match[1]),
             hasFront,
             hasBack,
             raw: withoutExt
           };
         }
         
-        // Just a number (e.g., "23" -> base="", num=23)
-        const numOnly = withoutExt.match(/^(\d+)$/);
-        if (numOnly) {
-          return {
-            base: '',
-            num: parseInt(numOnly[1]),
-            hasFront,
-            hasBack,
-            raw: withoutExt
-          };
-        }
-        
-        return {
-          base: withoutExt.replace(/front|back/gi, '').replace(/[-_\s]+/g, ' ').trim(),
-          num: null,
-          hasFront,
-          hasBack,
-          raw: withoutExt
-        };
+        return { num: null, hasFront, hasBack, raw: withoutExt };
       }
       
-      // Then, try filename-based pairing for unpaired items
+      // Sort queue by number for consistent pairing
+      const sortedQueue = [...bulkQueue].sort((a, b) => {
+        const aNum = extractNumber(a.name).num;
+        const bNum = extractNumber(b.name).num;
+        if (aNum === null && bNum === null) return 0;
+        if (aNum === null) return 1;
+        if (bNum === null) return -1;
+        return aNum - bNum;
+      });
+      
       // First pass: explicit front/back keywords
-      for (const item of bulkQueue) {
+      for (const item of sortedQueue) {
         if (used.has(item.id)) continue;
         
-        const parsed = parseFilename(item.name);
+        const parsed = extractNumber(item.name);
         
         if (parsed.hasFront) {
-          // Find matching back with same base
-          const matchingBack = bulkQueue.find(other => {
+          const baseName = item.name.toLowerCase()
+            .replace(/front/gi, '')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[-_\s]+/g, ' ')
+            .trim();
+          
+          const matchingBack = sortedQueue.find(other => {
             if (used.has(other.id) || other.id === item.id) return false;
-            const otherParsed = parseFilename(other.name);
-            return otherParsed.hasBack && otherParsed.base === parsed.base;
+            const otherParsed = extractNumber(other.name);
+            if (!otherParsed.hasBack) return false;
+            const otherBase = other.name.toLowerCase()
+              .replace(/back/gi, '')
+              .replace(/\.[^.]+$/, '')
+              .replace(/[-_\s]+/g, ' ')
+              .trim();
+            return otherBase === baseName;
           });
           
           used.add(item.id);
@@ -2546,60 +2529,61 @@
               backImage: matchingBack.base64,
               backPreview: matchingBack.preview,
               backName: matchingBack.name,
-              displayName: parsed.base || item.name
+              displayName: baseName || item.name
             });
           } else {
-            paired.push({
-              ...item,
-              displayName: parsed.base || item.name
-            });
+            paired.push({ ...item, displayName: baseName || item.name });
           }
         }
       }
       
-      // Second pass: sequential numbers (01/02, 23/24, etc.)
-      // Assume odd/lower number is front, even/higher is back (common convention)
-      const remaining = bulkQueue.filter(item => !used.has(item.id));
-      const byBaseAndNum = {};
+      // Second pass: Odd/Even number pairing (1+2, 3+4, 5+6, etc.)
+      // Odd = front, Even = back, must be consecutive
+      const numbered = sortedQueue
+        .filter(item => !used.has(item.id))
+        .map(item => ({ item, ...extractNumber(item.name) }))
+        .filter(x => x.num !== null)
+        .sort((a, b) => a.num - b.num);
       
-      for (const item of remaining) {
-        const parsed = parseFilename(item.name);
-        if (parsed.num !== null) {
-          const key = parsed.base || '__numbered__';
-          if (!byBaseAndNum[key]) byBaseAndNum[key] = [];
-          byBaseAndNum[key].push({ item, parsed });
-        }
-      }
-      
-      // For each base, pair sequential numbers
-      for (const key of Object.keys(byBaseAndNum)) {
-        const items = byBaseAndNum[key].sort((a, b) => a.parsed.num - b.parsed.num);
+      for (let i = 0; i < numbered.length; i++) {
+        const current = numbered[i];
+        if (used.has(current.item.id)) continue;
         
-        for (let i = 0; i < items.length; i++) {
-          const current = items[i];
-          if (used.has(current.item.id)) continue;
-          
-          // Look for next sequential number as potential back
-          const next = items.find(other => 
-            !used.has(other.item.id) && 
-            other.parsed.num === current.parsed.num + 1
+        // Check if this is an odd number (front)
+        const isOdd = current.num % 2 === 1;
+        
+        if (isOdd) {
+          // Look for the next consecutive even number (back)
+          const expectedBackNum = current.num + 1;
+          const back = numbered.find(x => 
+            !used.has(x.item.id) && 
+            x.num === expectedBackNum
           );
           
           used.add(current.item.id);
           
-          if (next) {
-            used.add(next.item.id);
+          if (back) {
+            used.add(back.item.id);
             paired.push({
               ...current.item,
-              backImage: next.item.base64,
-              backPreview: next.item.preview,
-              backName: next.item.name,
-              displayName: current.parsed.base || `Card ${current.parsed.num}`
+              backImage: back.item.base64,
+              backPreview: back.item.preview,
+              backName: back.item.name,
+              displayName: `Card ${current.num}`
             });
           } else {
             paired.push({
               ...current.item,
-              displayName: current.parsed.base || current.item.name
+              displayName: `Card ${current.num}`
+            });
+          }
+        } else {
+          // Even number without a preceding odd - treat as standalone
+          if (!used.has(current.item.id)) {
+            used.add(current.item.id);
+            paired.push({
+              ...current.item,
+              displayName: `Card ${current.num}`
             });
           }
         }
