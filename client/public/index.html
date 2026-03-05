@@ -1098,6 +1098,23 @@
             </div>
           </div>
           
+          <!-- Card Options -->
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="bulk-has-border" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-size: 14px;">🖼️ Cards have border (for edge/corner detection)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="bulk-is-autograph" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-size: 14px;">✍️ Autographed cards</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="bulk-is-numbered" style="width: 18px; height: 18px; cursor: pointer;" onchange="document.getElementById('bulk-numbered-input').style.display = this.checked ? 'inline-block' : 'none';">
+              <span style="font-size: 14px;">🔢 Numbered cards</span>
+              <input type="text" id="bulk-numbered-input" placeholder="e.g. 25/100" style="display: none; width: 100px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 14px;">
+            </label>
+          </div>
+          
           <div class="upload-zone" id="bulk-upload-zone" style="min-height: 200px; border: 2px dashed rgba(240,179,35,0.5);">
             <div class="icon" style="font-size: 48px;">📁</div>
             <div class="text">Drop folder or click to select multiple images</div>
@@ -1121,9 +1138,6 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3>Upload Queue (<span id="bulk-queue-count">0</span> cards)</h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-secondary" onclick="aiPairCards()" id="ai-pair-btn" style="background: linear-gradient(135deg, #f0b323 0%, #d4a01d 100%); color: #1a3a5c;">
-                🤖 AI Pair Fronts/Backs
-              </button>
               <button class="btn btn-secondary" onclick="clearBulkQueue()">Clear All</button>
               <button class="btn btn-primary" id="process-bulk-btn" onclick="processBulkUpload()">
                 🚀 Process & Save All
@@ -1131,8 +1145,8 @@
             </div>
           </div>
           
-          <div id="ai-pair-status" class="hidden" style="background: rgba(240,179,35,0.1); border: 1px solid rgba(240,179,35,0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-            <span id="ai-pair-status-text">🤖 AI is analyzing and pairing your cards...</span>
+          <div id="pairing-hint" style="background: rgba(240,179,35,0.1); border: 1px solid rgba(240,179,35,0.3); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
+            💡 Click a card to select it, then click another to manually pair them as front + back
           </div>
           
           <div id="bulk-progress" class="hidden" style="margin-bottom: 16px;">
@@ -1188,6 +1202,23 @@
         </div>
 
         <div class="grade-section">
+          <!-- Card Options -->
+          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="single-has-border" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-size: 14px;">🖼️ Card has border</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="single-is-autograph" style="width: 18px; height: 18px; cursor: pointer;">
+              <span style="font-size: 14px;">✍️ Autographed card</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="single-is-numbered" style="width: 18px; height: 18px; cursor: pointer;" onchange="document.getElementById('single-numbered-input').style.display = this.checked ? 'inline-block' : 'none';">
+              <span style="font-size: 14px;">🔢 Numbered card</span>
+              <input type="text" id="single-numbered-input" placeholder="e.g. 25/100" style="display: none; width: 100px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 14px;">
+            </label>
+          </div>
+          
           <button class="btn btn-grade" id="grade-btn" disabled>
             <span class="btn-text">✨ Grade This Card</span>
           </button>
@@ -2455,13 +2486,37 @@
       e.target.value = '';
     }
 
-    // Pair front and back images based on filename OR AI pairing
     // Pair front and back images based on filename
     // Pattern: Card_01 (front) + Card_02 (back), Card_03 (front) + Card_04 (back), etc.
     // Odd numbers = front, Even numbers = back
     function pairFrontBackImages() {
       const paired = [];
       const used = new Set();
+      
+      // FIRST: Handle manually paired cards
+      for (const item of bulkQueue) {
+        if (used.has(item.id)) continue;
+        
+        // Skip cards that are the "back" of a manual pair
+        if (item.isManualBack) continue;
+        
+        // If this card was manually paired, use that pairing
+        if (item.manualPaired && item.manualBackId) {
+          used.add(item.id);
+          const backCard = bulkQueue.find(c => c.id == item.manualBackId);
+          if (backCard) {
+            used.add(backCard.id);
+          }
+          paired.push({
+            ...item,
+            backImage: item.backImage,
+            backPreview: item.backPreview,
+            backName: item.backName,
+            displayName: item.displayName || item.name.replace(/\.[^.]+$/, '')
+          });
+          continue;
+        }
+      }
       
       // Helper: extract number from filename
       function extractNumber(name) {
@@ -2487,7 +2542,7 @@
       }
       
       // Sort queue by number for consistent pairing
-      const sortedQueue = [...bulkQueue].sort((a, b) => {
+      const sortedQueue = [...bulkQueue].filter(item => !used.has(item.id) && !item.isManualBack).sort((a, b) => {
         const aNum = extractNumber(a.name).num;
         const bNum = extractNumber(b.name).num;
         if (aNum === null && bNum === null) return 0;
@@ -2496,7 +2551,7 @@
         return aNum - bNum;
       });
       
-      // First pass: explicit front/back keywords
+      // Second pass: explicit front/back keywords
       for (const item of sortedQueue) {
         if (used.has(item.id)) continue;
         
@@ -2537,7 +2592,7 @@
         }
       }
       
-      // Second pass: Odd/Even number pairing (1+2, 3+4, 5+6, etc.)
+      // Third pass: Odd/Even number pairing (1+2, 3+4, 5+6, etc.)
       // Odd = front, Even = back, must be consecutive
       const numbered = sortedQueue
         .filter(item => !used.has(item.id))
@@ -2591,7 +2646,7 @@
       
       // Add any remaining unpaired items
       for (const item of bulkQueue) {
-        if (!used.has(item.id)) {
+        if (!used.has(item.id) && !item.isManualBack) {
           used.add(item.id);
           paired.push(item);
         }
@@ -2600,6 +2655,9 @@
       return paired;
     }
 
+    // Track selected card for manual pairing
+    let selectedForPairing = null;
+    
     function renderBulkQueue() {
       const queueDiv = document.getElementById('bulk-queue');
       const listDiv = document.getElementById('bulk-queue-list');
@@ -2607,6 +2665,7 @@
 
       if (bulkQueue.length === 0) {
         queueDiv.classList.add('hidden');
+        selectedForPairing = null;
         return;
       }
 
@@ -2617,7 +2676,9 @@
       countSpan.textContent = pairedCards.length;
 
       listDiv.innerHTML = pairedCards.map(item => `
-        <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05);" data-card-id="${item.id}">
+        <div style="position: relative; border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.05); cursor: pointer; ${selectedForPairing === item.id ? 'outline: 3px solid #f0b323;' : ''}" 
+             data-card-id="${item.id}" 
+             onclick="handleCardClick('${item.id}')">
           <div style="display: flex;">
             <img src="${item.preview}" style="width: ${item.backPreview ? '50%' : '100%'}; height: 150px; object-fit: cover;">
             ${item.backPreview ? `<img src="${item.backPreview}" style="width: 50%; height: 150px; object-fit: cover; border-left: 1px solid rgba(255,255,255,0.2);">` : ''}
@@ -2629,13 +2690,94 @@
             ${item.status === 'done' ? '<span style="background: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 10px;">✓ Done</span>' : ''}
             ${item.status === 'error' ? '<span style="background: #ef4444; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Error</span>' : ''}
           </div>
-          <button onclick="removeFromBulkQueue('${item.id}')" style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.6); border: none; color: white; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px;">×</button>
+          <button onclick="event.stopPropagation(); removeFromBulkQueue('${item.id}')" style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.6); border: none; color: white; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px;">×</button>
+          ${item.backPreview ? `<button onclick="event.stopPropagation(); unpairCard('${item.id}')" style="position: absolute; bottom: 30px; right: 4px; background: #ef4444; border: none; color: white; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px;">Unpair</button>` : ''}
           <div style="padding: 6px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             ${item.displayName || item.name}
           </div>
         </div>
       `).join('');
+      
+      // Show pairing instructions if a card is selected
+      const pairingHint = document.getElementById('pairing-hint');
+      if (pairingHint) {
+        if (selectedForPairing) {
+          pairingHint.textContent = '👆 Click another card to pair it as the back, or click the same card to deselect';
+          pairingHint.classList.remove('hidden');
+        } else {
+          pairingHint.textContent = '💡 Click a card to select it, then click another to manually pair them';
+          pairingHint.classList.remove('hidden');
+        }
+      }
     }
+    
+    // Handle card click for manual pairing
+    window.handleCardClick = function(cardId) {
+      const pairedCards = pairFrontBackImages();
+      const clickedCard = pairedCards.find(c => c.id == cardId);
+      
+      // If this card already has a back, don't allow pairing
+      if (clickedCard && clickedCard.backPreview) {
+        return;
+      }
+      
+      if (selectedForPairing === null) {
+        // First click - select this card
+        selectedForPairing = cardId;
+        renderBulkQueue();
+      } else if (selectedForPairing == cardId) {
+        // Clicked same card - deselect
+        selectedForPairing = null;
+        renderBulkQueue();
+      } else {
+        // Second click - pair these cards
+        manuallyPairCards(selectedForPairing, cardId);
+        selectedForPairing = null;
+        renderBulkQueue();
+      }
+    };
+    
+    // Manually pair two cards
+    function manuallyPairCards(frontId, backId) {
+      const frontCard = bulkQueue.find(c => c.id == frontId);
+      const backCard = bulkQueue.find(c => c.id == backId);
+      
+      if (frontCard && backCard) {
+        // Set up the pairing
+        frontCard.manualPaired = true;
+        frontCard.manualBackId = backId;
+        frontCard.backImage = backCard.base64;
+        frontCard.backPreview = backCard.preview;
+        frontCard.backName = backCard.name;
+        
+        // Mark back card as used
+        backCard.manualPaired = true;
+        backCard.isManualBack = true;
+        backCard.pairedWithId = frontId;
+      }
+    }
+    
+    // Unpair a manually or auto-paired card
+    window.unpairCard = function(cardId) {
+      const card = bulkQueue.find(c => c.id == cardId);
+      if (card) {
+        // Find and reset the back card
+        const backCard = bulkQueue.find(c => c.pairedWithId == cardId || c.id == card.manualBackId);
+        if (backCard) {
+          backCard.manualPaired = false;
+          backCard.isManualBack = false;
+          backCard.pairedWithId = null;
+        }
+        
+        // Reset the front card
+        card.manualPaired = false;
+        card.manualBackId = null;
+        card.backImage = null;
+        card.backPreview = null;
+        card.backName = null;
+      }
+      renderBulkQueue();
+    };
 
     window.removeFromBulkQueue = function(id) {
       bulkQueue = bulkQueue.filter(item => item.id != id);
@@ -2659,6 +2801,12 @@
 
       const defaultGrade = parseFloat(document.getElementById('bulk-default-grade').value) || 10;
       const gradeMode = document.getElementById('bulk-grade-mode').value;
+      
+      // Get card options
+      const hasBorder = document.getElementById('bulk-has-border').checked;
+      const isAutograph = document.getElementById('bulk-is-autograph').checked;
+      const isNumbered = document.getElementById('bulk-is-numbered').checked;
+      const numberedValue = document.getElementById('bulk-numbered-input').value.trim();
       
       const btn = document.getElementById('process-bulk-btn');
       btn.disabled = true;
@@ -2733,7 +2881,11 @@
               },
               body: JSON.stringify({
                 frontImage: item.base64,
-                backImage: item.backImage || null
+                backImage: item.backImage || null,
+                hasBorder: hasBorder,
+                isAutograph: isAutograph,
+                isNumbered: isNumbered,
+                numberedValue: numberedValue
               })
             });
 
@@ -2753,7 +2905,11 @@
               },
               body: JSON.stringify({
                 frontImage: item.base64,
-                backImage: item.backImage || null
+                backImage: item.backImage || null,
+                hasBorder: hasBorder,
+                isAutograph: isAutograph,
+                isNumbered: isNumbered,
+                numberedValue: numberedValue
               })
             });
 
@@ -2781,7 +2937,12 @@
                   'Authorization': `Bearer ${token}`,
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ frontImage: item.base64 })
+                body: JSON.stringify({ 
+                  frontImage: item.base64,
+                  isAutograph: isAutograph,
+                  isNumbered: isNumbered,
+                  numberedValue: numberedValue
+                })
               });
               
               if (identifyRes && identifyRes.ok) {
@@ -2814,7 +2975,10 @@
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                frontImage: item.base64
+                frontImage: item.base64,
+                isAutograph: isAutograph,
+                isNumbered: isNumbered,
+                numberedValue: numberedValue
               })
             });
 
@@ -2852,6 +3016,14 @@
               printQuality: { score: defaultGrade, notes: 'Default grade applied.' }
             };
             cardData.summary = 'Card graded via bulk upload with default grade.';
+          }
+          
+          // Add autograph and numbered info to card identification
+          if (isAutograph && cardData.cardIdentification) {
+            cardData.cardIdentification.isAutograph = true;
+          }
+          if (isNumbered && numberedValue && cardData.cardIdentification) {
+            cardData.cardIdentification.numberedTo = numberedValue;
           }
 
           // Add images (front and back if paired)

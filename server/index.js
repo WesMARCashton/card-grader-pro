@@ -463,12 +463,20 @@ app.post('/api/grade', authenticateToken, upload.fields([
 ]), async (req, res) => {
   try {
     let frontBase64, backBase64;
+    let hasBorder = false;
+    let isAutograph = false;
+    let isNumbered = false;
+    let numberedValue = '';
     
     // Check if this is a JSON request (from bulk upload) or multipart form (from single upload)
     if (req.body && req.body.frontImage && typeof req.body.frontImage === 'string') {
       // JSON request with base64 images
       frontBase64 = req.body.frontImage;
       backBase64 = req.body.backImage || null;
+      hasBorder = req.body.hasBorder || false;
+      isAutograph = req.body.isAutograph || false;
+      isNumbered = req.body.isNumbered || false;
+      numberedValue = req.body.numberedValue || '';
     } else if (req.files && req.files['frontImage']) {
       // Multipart form with file uploads
       const frontFile = req.files['frontImage']?.[0];
@@ -480,12 +488,16 @@ app.post('/api/grade', authenticateToken, upload.fields([
 
       frontBase64 = frontFile.buffer.toString('base64');
       backBase64 = backFile ? backFile.buffer.toString('base64') : null;
+      hasBorder = req.body.hasBorder === 'true' || req.body.hasBorder === true;
+      isAutograph = req.body.isAutograph === 'true' || req.body.isAutograph === true;
+      isNumbered = req.body.isNumbered === 'true' || req.body.isNumbered === true;
+      numberedValue = req.body.numberedValue || '';
     } else {
       return res.status(400).json({ error: 'Front image is required' });
     }
 
-    // Call Gemini API
-    const result = await gradeCardWithGemini(frontBase64, backBase64);
+    // Call Gemini API with options
+    const result = await gradeCardWithGemini(frontBase64, backBase64, { hasBorder, isAutograph, isNumbered, numberedValue });
     
     // Add image data to result
     result.frontImage = frontBase64;
@@ -1247,8 +1259,10 @@ const NGA_GRADES = {
 
 // ============ GEMINI API INTEGRATION ============
 
-async function gradeCardWithGemini(frontBase64, backBase64) {
-  const systemPrompt = `You are an expert collectible card grader with decades of experience grading sports cards (NHL, NFL, NBA, MLB) and trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.). You grade cards following professional authentication standards meticulously.
+async function gradeCardWithGemini(frontBase64, backBase64, options = {}) {
+  const { hasBorder = false, isAutograph = false, isNumbered = false, numberedValue = '' } = options;
+  
+  let systemPrompt = `You are an expert collectible card grader with decades of experience grading sports cards (NHL, NFL, NBA, MLB) and trading cards (Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.). You grade cards following professional authentication standards meticulously.
 
 GRADING SCALE (1-10):
 - 10 Gem Mint: Perfect condition. Four perfectly sharp corners. Sharp focus. Full original gloss. Free of staining. No print defects. 55/45 centering or better on front, 75/25 or better on back.
@@ -1260,7 +1274,40 @@ GRADING SCALE (1-10):
 - 4 VG-EX: Noticeable wear, minor creases, light scuffing.
 - 3 Very Good: Heavy wear, major creasing, rounded corners.
 - 2 Good: Significant damage, heavy creases, major scuffing.
-- 1 Poor: Extensive damage, missing pieces, tears, or holes.
+- 1 Poor: Extensive damage, missing pieces, tears, or holes.`;
+
+  // Add special instructions based on options
+  if (hasBorder) {
+    systemPrompt += `
+
+IMPORTANT - BORDER DETECTION:
+The card image has been placed on a contrasting background/border to help identify the card's edges and corners. Use this border as a reference to:
+- Accurately assess corner sharpness by looking where the card edges meet
+- Identify any edge wear, chips, or damage along the card perimeter
+- Better evaluate centering by measuring from the visible card borders
+The outer border/background is NOT part of the card itself.`;
+  }
+
+  if (isAutograph) {
+    systemPrompt += `
+
+AUTOGRAPH CARD:
+This is an autographed card. When identifying the card:
+- Include "AUTO" or "Autograph" in the variant field
+- Note the autograph location and quality in your assessment
+- Consider autograph clarity and placement in your grading`;
+  }
+
+  if (isNumbered && numberedValue) {
+    systemPrompt += `
+
+NUMBERED CARD:
+This card is serial numbered: ${numberedValue}
+- Include this numbering in the cardNumber or variant field (e.g., "#25/100" or "Numbered ${numberedValue}")
+- Note the print run significance in your market notes`;
+  }
+
+  systemPrompt += `
 
 Analyze the provided card image(s) and provide a detailed grading report.
 
