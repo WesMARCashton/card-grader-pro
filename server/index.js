@@ -1513,6 +1513,190 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
   }
 });
 
+// Identify card AND write grade-appropriate notes - for bulk upload with preset grade
+app.post('/api/identify-with-writeup', authenticateToken, async (req, res) => {
+  try {
+    const { frontImage, backImage, targetGrade, isAutograph, isNumbered, numberedValue, hasBorder } = req.body;
+
+    if (!frontImage) {
+      return res.status(400).json({ error: 'Front image is required' });
+    }
+
+    const grade = parseFloat(targetGrade) || 10;
+    
+    // Grade descriptions for context
+    const gradeDescriptions = {
+      10: "Gem Mint - Perfect condition with no visible flaws. Sharp corners, perfect centering, pristine surface.",
+      9.5: "Gem Mint - Near perfect with only the most minor imperfection barely visible under magnification.",
+      9: "Mint - One very minor flaw. Excellent centering, sharp corners, clean surface.",
+      8.5: "NM-MT+ - Very minor flaw visible upon close inspection.",
+      8: "NM-MT - Minor flaw on corner or edges. Very good centering.",
+      7.5: "Near Mint+ - Slight wear visible upon inspection.",
+      7: "Near Mint - Slight surface wear or minor corner wear. Good centering.",
+      6.5: "EX-MT+ - Light wear visible.",
+      6: "EX-MT - Visible surface wear or print spots. Acceptable centering.",
+      5: "Excellent - Moderate wear. Corners may show some rounding.",
+      4: "VG-EX - Noticeable wear, possible minor creases.",
+      3: "Very Good - Significant wear, creasing, rounded corners.",
+      2: "Good - Heavy wear and damage visible.",
+      1: "Poor - Extensive damage."
+    };
+    
+    const gradeDesc = gradeDescriptions[grade] || gradeDescriptions[Math.round(grade)] || "Good condition card.";
+
+    let systemPrompt = `You are an expert collectible card grader. Identify this card AND write condition notes that are consistent with a grade of ${grade} (${gradeDesc}).
+
+IMPORTANT: The user has PRE-DETERMINED this card's grade as ${grade}. Write your condition notes to MATCH this grade. Do not contradict the assigned grade.
+
+For a grade of ${grade}, write notes that describe:
+- Centering that is appropriate for this grade level
+- Corner condition matching this grade
+- Edge condition matching this grade  
+- Surface quality matching this grade
+- Print quality matching this grade`;
+
+    if (hasBorder) {
+      systemPrompt += `\n\nNote: The card image has a border/background for edge detection - this is not part of the card.`;
+    }
+    
+    if (isAutograph) {
+      systemPrompt += `\n\nThis is an AUTOGRAPHED card - include "AUTO" in the variant field.`;
+    }
+    
+    if (isNumbered && numberedValue) {
+      systemPrompt += `\n\nThis is a NUMBERED card: ${numberedValue} - include this in the variant or cardNumber field.`;
+    }
+
+    systemPrompt += `
+
+Return ONLY valid JSON in this exact format:
+{
+  "cardIdentification": {
+    "sport": "string (NHL/NFL/NBA/MLB/POKEMON/MTG/YUGIOH/OTHER)",
+    "company": "string (UPPER DECK/TOPPS/PANINI/etc.)",
+    "playerOrCharacter": "string",
+    "cardSet": "string",
+    "series": "string or null",
+    "variant": "string or null",
+    "year": "string",
+    "cardNumber": "string"
+  },
+  "grades": {
+    "centering": {
+      "score": ${grade},
+      "frontRatio": "string like 50/50 or 55/45",
+      "backRatio": "string or null",
+      "notes": "string describing centering consistent with grade ${grade}"
+    },
+    "corners": {
+      "score": ${grade},
+      "notes": "string describing corners consistent with grade ${grade}"
+    },
+    "edges": {
+      "score": ${grade},
+      "notes": "string describing edges consistent with grade ${grade}"
+    },
+    "surface": {
+      "score": ${grade},
+      "notes": "string describing surface consistent with grade ${grade}"
+    },
+    "printQuality": {
+      "score": ${grade},
+      "notes": "string describing print quality consistent with grade ${grade}"
+    }
+  },
+  "overallGrade": ${grade},
+  "ngaEquivalent": "NGA ${Math.round(grade)}",
+  "summary": "string with 2-3 paragraph assessment consistent with grade ${grade}",
+  "marketNotes": "string about card significance"
+}`;
+
+    const parts = [
+      { text: systemPrompt },
+      { text: "Identify this card and write condition notes appropriate for the assigned grade:" },
+      {
+        inline_data: {
+          mime_type: "image/jpeg",
+          data: frontImage
+        }
+      }
+    ];
+
+    if (backImage) {
+      parts.push(
+        { text: "Here is the back of the card:" },
+        {
+          inline_data: {
+            mime_type: "image/jpeg",
+            data: backImage
+          }
+        }
+      );
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2000
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+    
+    if (!response.ok || data.error) {
+      console.error('Gemini API Error:', JSON.stringify(data, null, 2));
+      throw new Error(data.error?.message || 'Failed to process card');
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    let jsonText = text;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Could not parse response');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    // Ensure grades match the target
+    result.overallGrade = grade;
+    result.ngaEquivalent = `NGA ${Math.round(grade)}`;
+    if (result.grades) {
+      for (const cat of ['centering', 'corners', 'edges', 'surface', 'printQuality']) {
+        if (result.grades[cat]) {
+          result.grades[cat].score = grade;
+        }
+      }
+    }
+    
+    // Add autograph/numbered flags
+    if (isAutograph && result.cardIdentification) {
+      result.cardIdentification.isAutograph = true;
+    }
+    if (isNumbered && numberedValue && result.cardIdentification) {
+      result.cardIdentification.numberedTo = numberedValue;
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Identify with writeup error:', error);
+    res.status(500).json({ error: error.message || 'Failed to process card' });
+  }
+});
+
 // AI-powered front/back pairing for bulk upload
 app.post('/api/ai-pair-cards', authenticateToken, async (req, res) => {
   try {

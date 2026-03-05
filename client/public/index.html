@@ -2896,8 +2896,8 @@
             }
             
           } else if (gradeMode === 'full-writeup') {
-            // AI does full analysis but we override the grades
-            const gradeRes = await fetchWithRetry('/api/grade', {
+            // AI identifies card AND writes notes appropriate for the default grade
+            const writeupRes = await fetchWithRetry('/api/identify-with-writeup', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2906,6 +2906,7 @@
               body: JSON.stringify({
                 frontImage: item.base64,
                 backImage: item.backImage || null,
+                targetGrade: defaultGrade,
                 hasBorder: hasBorder,
                 isAutograph: isAutograph,
                 isNumbered: isNumbered,
@@ -2913,23 +2914,10 @@
               })
             });
 
-            if (gradeRes && gradeRes.ok) {
-              cardData = await gradeRes.json();
-              
-              // Keep the AI's identification, summary, and notes but override grades
-              cardData.overallGrade = defaultGrade;
-              cardData.ngaEquivalent = `NGA ${Math.round(defaultGrade)}`;
-              
-              // Override each subcategory grade but keep AI notes
-              if (cardData.grades) {
-                for (const category of ['centering', 'corners', 'edges', 'surface', 'printQuality']) {
-                  if (cardData.grades[category]) {
-                    cardData.grades[category].score = defaultGrade;
-                  }
-                }
-              }
+            if (writeupRes && writeupRes.ok) {
+              cardData = await writeupRes.json();
             } else {
-              // Fallback to identify-only if full grading fails
+              // Fallback to identify-only if writeup fails
               console.warn('Full writeup failed, falling back to identify-only');
               const identifyRes = await fetchWithRetry('/api/identify-only', {
                 method: 'POST',
