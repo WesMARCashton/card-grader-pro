@@ -1515,8 +1515,10 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks:
 
 // Identify card AND write grade-appropriate notes - for bulk upload with preset grade
 app.post('/api/identify-with-writeup', authenticateToken, async (req, res) => {
+  console.log('=== identify-with-writeup called ===');
   try {
     const { frontImage, backImage, targetGrade, isAutograph, isNumbered, numberedValue, hasBorder } = req.body;
+    console.log('Target grade:', targetGrade, 'isAutograph:', isAutograph, 'isNumbered:', isNumbered);
 
     if (!frontImage) {
       return res.status(400).json({ error: 'Front image is required' });
@@ -1690,6 +1692,7 @@ Return ONLY valid JSON in this exact format:
       result.cardIdentification.numberedTo = numberedValue;
     }
     
+    console.log('identify-with-writeup SUCCESS for:', result.cardIdentification?.playerOrCharacter);
     res.json(result);
   } catch (error) {
     console.error('Identify with writeup error:', error);
