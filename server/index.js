@@ -69,6 +69,35 @@ async function uploadImageToFirebase(base64Data, cardId, imageType) {
   }
 }
 
+// Upload to Firebase with custom filename path
+async function uploadToFirebase(base64Data, filename) {
+  if (!bucket) {
+    console.log('Firebase bucket not available');
+    return null;
+  }
+  
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    const file = bucket.file(filename);
+    
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'image/jpeg'
+      }
+    });
+    
+    // Make the file publicly accessible
+    await file.makePublic();
+    
+    // Return the public URL
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+    return publicUrl;
+  } catch (error) {
+    console.error('Firebase upload error:', error);
+    return null;
+  }
+}
+
 let db;
 let usersCollection;
 let cardsCollection;
@@ -520,11 +549,37 @@ app.post('/api/collection', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Card data is required' });
     }
 
+    // Upload images to Firebase and get URLs (don't store base64 in MongoDB)
+    let frontImageUrl = card.frontImageUrl || null;
+    let backImageUrl = card.backImageUrl || null;
+    
+    if (card.frontImage && !frontImageUrl) {
+      // Upload front image to Firebase
+      const frontFilename = `cards/${req.user.email.replace(/[^a-zA-Z0-9]/g, '_')}/${Date.now()}_front.jpg`;
+      frontImageUrl = await uploadToFirebase(card.frontImage, frontFilename);
+    }
+    
+    if (card.backImage && !backImageUrl) {
+      // Upload back image to Firebase
+      const backFilename = `cards/${req.user.email.replace(/[^a-zA-Z0-9]/g, '_')}/${Date.now()}_back.jpg`;
+      backImageUrl = await uploadToFirebase(card.backImage, backFilename);
+    }
+
+    // Create card object WITHOUT base64 images (only URLs)
     const savedCard = {
       userEmail: req.user.email,
       userName: req.user.name,
       savedAt: new Date(),
-      ...card
+      cardIdentification: card.cardIdentification,
+      grades: card.grades,
+      overallGrade: card.overallGrade,
+      ngaEquivalent: card.ngaEquivalent,
+      summary: card.summary,
+      marketNotes: card.marketNotes,
+      manuallyAdjusted: card.manuallyAdjusted,
+      frontImageUrl: frontImageUrl,
+      backImageUrl: backImageUrl,
+      // Do NOT store frontImage or backImage base64 data
     };
 
     const result = await cardsCollection.insertOne(savedCard);
@@ -831,6 +886,81 @@ app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res
   } catch (error) {
     console.error('Admin edit card error:', error);
     res.status(500).json({ error: 'Failed to edit card' });
+  }
+});
+
+// Admin endpoint to clean up base64 images from existing cards (migrate to Firebase URLs only)
+app.post('/api/admin/cleanup-images', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('=== Starting image cleanup ===');
+    
+    // Find all cards that have base64 images stored
+    const cardsWithBase64 = await cardsCollection.find({
+      $or: [
+        { frontImage: { $exists: true, $ne: null } },
+        { backImage: { $exists: true, $ne: null } }
+      ]
+    }).toArray();
+    
+    console.log(`Found ${cardsWithBase64.length} cards with base64 images to clean up`);
+    
+    let cleaned = 0;
+    let errors = 0;
+    let uploaded = 0;
+    
+    for (const card of cardsWithBase64) {
+      try {
+        const updateData = {};
+        
+        // If card has base64 frontImage but no URL, upload it first
+        if (card.frontImage && !card.frontImageUrl) {
+          const frontFilename = `cards/${card.userEmail.replace(/[^a-zA-Z0-9]/g, '_')}/${card._id}_front.jpg`;
+          const frontUrl = await uploadToFirebase(card.frontImage, frontFilename);
+          updateData.frontImageUrl = frontUrl;
+          uploaded++;
+        }
+        
+        // If card has base64 backImage but no URL, upload it first
+        if (card.backImage && !card.backImageUrl) {
+          const backFilename = `cards/${card.userEmail.replace(/[^a-zA-Z0-9]/g, '_')}/${card._id}_back.jpg`;
+          const backUrl = await uploadToFirebase(card.backImage, backFilename);
+          updateData.backImageUrl = backUrl;
+          uploaded++;
+        }
+        
+        // Remove base64 images from the card
+        await cardsCollection.updateOne(
+          { _id: card._id },
+          { 
+            $set: updateData,
+            $unset: { frontImage: "", backImage: "" }
+          }
+        );
+        
+        cleaned++;
+        
+        // Log progress every 50 cards
+        if (cleaned % 50 === 0) {
+          console.log(`Cleaned ${cleaned}/${cardsWithBase64.length} cards...`);
+        }
+      } catch (cardError) {
+        console.error(`Error cleaning card ${card._id}:`, cardError.message);
+        errors++;
+      }
+    }
+    
+    console.log(`=== Cleanup complete: ${cleaned} cleaned, ${uploaded} uploaded, ${errors} errors ===`);
+    
+    res.json({ 
+      success: true, 
+      message: `Cleaned ${cleaned} cards, uploaded ${uploaded} images, ${errors} errors`,
+      cleaned,
+      uploaded,
+      errors
+    });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({ error: 'Failed to cleanup images' });
   }
 });
 

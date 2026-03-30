@@ -1662,9 +1662,12 @@
       grid.classList.remove('hidden');
       empty.classList.add('hidden');
 
-      grid.innerHTML = collection.map(card => `
+      grid.innerHTML = collection.map(card => {
+        // Use Firebase URL if available, otherwise fall back to base64
+        const frontSrc = card.frontImageUrl || (card.frontImage ? `data:image/jpeg;base64,${card.frontImage}` : '');
+        return `
         <div class="collection-card" data-id="${card.id}">
-          <img src="data:image/jpeg;base64,${card.frontImage}" alt="${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'CARD'}">
+          <img src="${frontSrc}" alt="${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'CARD'}">
           <div class="collection-card-info">
             <div class="collection-card-name">${toUpperCase(card.cardIdentification?.playerOrCharacter) || 'UNKNOWN'}${card.manuallyAdjusted ? ' ✏️' : ''}</div>
             <div class="collection-card-set">${toUpperCase(card.cardIdentification?.cardSet) || ''} ${card.cardIdentification?.year || ''}</div>
@@ -1678,7 +1681,7 @@
             <button class="btn-delete" onclick="deleteCard('${card.id}', event)">Delete</button>
           </div>
         </div>
-      `).join('');
+      `}).join('');
     }
 
     async function saveToCollection() {
@@ -1762,16 +1765,21 @@
       modalTitle.textContent = toUpperCase(card.cardIdentification?.playerOrCharacter) || 'CARD DETAILS';
 
       const color = getGradeColor(card.overallGrade);
+      
+      // Use Firebase URL if available, otherwise fall back to base64
+      const frontSrc = card.frontImageUrl || (card.frontImage ? `data:image/jpeg;base64,${card.frontImage}` : '');
+      const backSrc = card.backImageUrl || (card.backImage ? `data:image/jpeg;base64,${card.backImage}` : '');
+      const hasBack = card.backImageUrl || card.backImage;
 
       modalBody.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
           <div>
-            <img src="data:image/jpeg;base64,${card.frontImage}" alt="Front" style="width: 100%; border-radius: 12px;">
+            <img src="${frontSrc}" alt="Front" style="width: 100%; border-radius: 12px;">
             <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">FRONT</p>
           </div>
-          ${card.backImage ? `
+          ${hasBack ? `
             <div>
-              <img src="data:image/jpeg;base64,${card.backImage}" alt="Back" style="width: 100%; border-radius: 12px;">
+              <img src="${backSrc}" alt="Back" style="width: 100%; border-radius: 12px;">
               <p style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 8px; font-size: 12px;">BACK</p>
             </div>
           ` : '<div></div>'}
@@ -2468,14 +2476,16 @@
 
       files.forEach(file => {
         const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64 = event.target.result.split(',')[1];
+        reader.onload = async (event) => {
+          // Compress image to reduce memory usage
+          const compressedBase64 = await compressImage(event.target.result, 1200, 0.85);
+          const base64 = compressedBase64.split(',')[1];
           bulkQueue.push({
             id: Date.now() + Math.random(),
             file: file,
             name: file.name,
             base64: base64,
-            preview: event.target.result,
+            preview: compressedBase64,
             status: 'pending'
           });
           renderBulkQueue();
@@ -2484,6 +2494,38 @@
       });
 
       e.target.value = '';
+    }
+    
+    // Compress image to reduce memory and API payload size
+    function compressImage(dataUrl, maxSize = 1200, quality = 0.85) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Scale down if larger than maxSize
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round(height * maxSize / width);
+              width = maxSize;
+            } else {
+              width = Math.round(width * maxSize / height);
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = dataUrl;
+      });
     }
 
     // Pair front and back images based on filename
@@ -2855,8 +2897,8 @@
         
         // Add delay between cards to prevent API rate limiting and memory issues
         if (i > 0) {
-          progressText.textContent = `Waiting before next card...`;
-          await delay(3000); // 3 second delay between cards
+          progressText.textContent = `Waiting before next card... (5 sec cooldown)`;
+          await delay(5000); // 5 second delay between cards
         }
         
         // Update status in original queue

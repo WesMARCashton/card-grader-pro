@@ -614,6 +614,18 @@
           <div class="subtext">across all cards</div>
         </div>
       </div>
+      
+      <!-- Database Cleanup -->
+      <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+        <h4 style="margin: 0 0 8px 0; color: #ef4444;">🗄️ Database Cleanup</h4>
+        <p style="margin: 0 0 12px 0; color: rgba(255,255,255,0.6); font-size: 13px;">
+          Migrate base64 images to Firebase URLs to free up MongoDB storage. This is a one-time operation.
+        </p>
+        <button class="btn" onclick="runImageCleanup()" id="cleanup-btn" style="background: #ef4444; color: white;">
+          🧹 Clean Up Images
+        </button>
+        <span id="cleanup-status" style="margin-left: 12px; font-size: 13px;"></span>
+      </div>
 
       <!-- Top Users -->
       <div class="top-users" id="top-users-section">
@@ -938,6 +950,44 @@
       await loadStats();
       await loadUsers();
       await loadCards();
+    }
+    
+    async function runImageCleanup() {
+      const btn = document.getElementById('cleanup-btn');
+      const status = document.getElementById('cleanup-status');
+      
+      if (!confirm('This will migrate all base64 images to Firebase and remove them from MongoDB. This may take several minutes for large collections. Continue?')) {
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ Cleaning up...';
+      status.textContent = 'This may take a few minutes...';
+      status.style.color = '#f0b323';
+      
+      try {
+        const res = await fetch('/api/admin/cleanup-images', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          status.textContent = `✅ ${data.message}`;
+          status.style.color = '#10b981';
+          btn.textContent = '✓ Cleanup Complete';
+          btn.style.background = '#10b981';
+        } else {
+          throw new Error(data.error || 'Cleanup failed');
+        }
+      } catch (e) {
+        console.error('Cleanup error:', e);
+        status.textContent = `❌ Error: ${e.message}`;
+        status.style.color = '#ef4444';
+        btn.disabled = false;
+        btn.textContent = '🧹 Clean Up Images';
+      }
     }
 
     async function loadStats() {
