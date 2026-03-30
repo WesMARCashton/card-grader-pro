@@ -810,19 +810,64 @@ app.delete('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, 
 app.get('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const cardId = req.params.id;
-    
-    const card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
+
+    if (!ObjectId.isValid(cardId)) {
+      return res.status(400).json({ error: 'Invalid card ID' });
+    }
+
+    const card = await cardsCollection.findOne(
+      { _id: new ObjectId(cardId) },
+      {
+        projection: {
+          _id: 1,
+          userEmail: 1,
+          userName: 1,
+          savedAt: 1,
+          syncedAt: 1,
+          syncedToSheet: 1,
+          manuallyAdjusted: 1,
+          cardIdentification: 1,
+          grades: 1,
+          overallGrade: 1,
+          ngaEquivalent: 1,
+          summary: 1,
+          marketNotes: 1,
+          frontImageUrl: 1,
+          backImageUrl: 1,
+          frontImage: 1,
+          backImage: 1
+        }
+      }
+    );
+
     if (!card) {
       return res.status(404).json({ error: 'Card not found' });
     }
-    
-    // Get user name
-    const user = await usersCollection.findOne({ email: card.userEmail });
-    
+
+    const user = await usersCollection.findOne(
+      { email: card.userEmail },
+      { projection: { name: 1, email: 1 } }
+    );
+
     res.json({
-      ...card,
       id: card._id.toString(),
-      userName: user?.name || card.userEmail
+      _id: card._id.toString(),
+      userEmail: card.userEmail || '',
+      userName: user?.name || card.userName || card.userEmail || 'Unknown User',
+      savedAt: card.savedAt || null,
+      syncedAt: card.syncedAt || null,
+      syncedToSheet: !!card.syncedToSheet,
+      manuallyAdjusted: !!card.manuallyAdjusted,
+      cardIdentification: card.cardIdentification || {},
+      grades: card.grades || {},
+      overallGrade: card.overallGrade ?? null,
+      ngaEquivalent: card.ngaEquivalent || '',
+      summary: card.summary || '',
+      marketNotes: card.marketNotes || '',
+      frontImageUrl: card.frontImageUrl || null,
+      backImageUrl: card.backImageUrl || null,
+      frontImage: card.frontImage || null,
+      backImage: card.backImage || null
     });
   } catch (error) {
     console.error('Get single card error:', error);
