@@ -1248,9 +1248,8 @@ app.post('/api/sync-to-sheet', authenticateToken, async (req, res) => {
       surface_notes: card.grades?.surface?.notes || '',
       print_quality_grade: card.grades?.printQuality?.score || '',
       print_quality_notes: card.grades?.printQuality?.notes || '',
-      summary: card.summary || '',
-      front_image_url: frontImageUrl || '',
-      back_image_url: backImageUrl || ''
+      summary: card.summary || ''
+      // Removed front_image_url and back_image_url - no longer syncing images to sheet
     };
     
     // Send to Google Apps Script (hardcoded URL)
