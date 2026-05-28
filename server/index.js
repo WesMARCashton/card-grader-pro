@@ -1599,18 +1599,37 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
+  // Strip markdown code fences if present
   let jsonText = text;
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     jsonText = codeBlockMatch[1];
   }
 
+  // Extract the outermost JSON object
   const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Could not parse grading response from AI');
   }
 
-  return JSON.parse(jsonMatch[0]);
+  let raw = jsonMatch[0];
+
+  // Remove single-line comments (// ...)
+  raw = raw.replace(/\/\/[^\n]*/g, '');
+
+  // Remove multi-line comments (/* ... */)
+  raw = raw.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Remove trailing commas before } or ]
+  raw = raw.replace(/,\s*([}\]])/g, '$1');
+
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    // Last resort: log raw text and throw a clean error
+    console.error('JSON parse failed. Raw Gemini text:', text.substring(0, 500));
+    throw new Error('AI returned malformed JSON. Try re-grading the card.');
+  }
 }
 
 // Identify card only (no grading) - for bulk upload
