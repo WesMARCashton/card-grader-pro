@@ -1840,15 +1840,16 @@
       currentGradingResult.grades[category].score = newScore;
       currentGradingResult.grades[category].notes = generateNotesForGrade(category, newScore);
       
-      // Recalculate overall grade as average of all categories
+      // Overall grade = lowest subgrade (not average)
       const grades = currentGradingResult.grades;
-      const total = (grades.centering?.score || 0) + 
-                    (grades.corners?.score || 0) + 
-                    (grades.edges?.score || 0) + 
-                    (grades.surface?.score || 0) + 
-                    (grades.printQuality?.score || 0);
-      const average = total / 5;
-      const newOverall = Math.round(average * 2) / 2; // Round to nearest 0.5
+      const lowest = Math.min(
+        grades.centering?.score || 10,
+        grades.corners?.score || 10,
+        grades.edges?.score || 10,
+        grades.surface?.score || 10,
+        grades.printQuality?.score || 10
+      );
+      const newOverall = Math.round(lowest * 2) / 2; // Round to nearest 0.5
       
       currentGradingResult.overallGrade = newOverall;
       currentGradingResult.ngaEquivalent = `NGA ${Math.round(newOverall)}`;
