@@ -1445,44 +1445,66 @@
 
         <!-- Editable Grade Breakdown -->
         <div class="detail-section">
-          <h3>Grade Breakdown <span style="font-size: 12px; color: rgba(255,255,255,0.4); font-weight: normal;">(editable - adjusts overall grade)</span></h3>
-          
+          <h3>Grade Breakdown</h3>
+
+          <!-- Auto / Manual toggle -->
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+            <span style="font-size: 12px; color: rgba(255,255,255,0.5);">GRADING MODE:</span>
+            <button id="grade-mode-auto" onclick="setGradeMode('auto')"
+              style="padding: 5px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+                     background: #10b981; color: #fff;">AUTO</button>
+            <button id="grade-mode-manual" onclick="setGradeMode('manual')"
+              style="padding: 5px 14px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; font-weight: 600;
+                     background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);">MANUAL</button>
+            <span id="grade-mode-hint" style="font-size: 11px; color: rgba(255,255,255,0.35);">Overall = lowest subgrade</span>
+          </div>
+
           <!-- Overall Grade Display -->
           <div style="background: ${color}20; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
-            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px;">CALCULATED OVERALL GRADE</div>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 4px;" id="overall-grade-label">OVERALL GRADE (AUTO)</div>
+            <!-- Auto display -->
             <div id="calculated-grade" style="font-size: 36px; font-weight: 700; color: ${color};">${card.overallGrade}</div>
             <div id="calculated-mint" style="font-size: 14px; color: ${color};">${NGA_GRADES[card.overallGrade] || ''}</div>
+            <!-- Manual input (hidden by default) -->
+            <div id="manual-grade-wrap" style="display: none;">
+              <input type="number" id="manual-overall-grade" class="form-input"
+                value="${card.overallGrade}" min="1" max="10" step="0.5"
+                onchange="onManualOverallChange()"
+                style="width: 100px; margin: 0 auto 4px; text-align: center; font-size: 24px; font-weight: 700;">
+              <div id="manual-mint-label" style="font-size: 14px; color: ${color};"></div>
+            </div>
           </div>
-          
+
+          <!-- Subgrade rows -->
           <div style="display: grid; gap: 12px;">
             <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
               <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">CENTERING</div>
-              <input type="number" id="edit-centering" class="form-input" value="${card.grades?.centering?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="number" id="edit-centering" class="form-input" value="${card.grades?.centering?.score || 10}" min="1" max="10" step="0.5" onchange="onSubgradeChange('centering')" style="margin-bottom: 0; text-align: center;">
               <input type="text" id="edit-centering-notes" class="form-input" value="${(card.grades?.centering?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about centering..." style="margin-bottom: 0; font-size: 12px;">
             </div>
             <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
               <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">CORNERS</div>
-              <input type="number" id="edit-corners" class="form-input" value="${card.grades?.corners?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="number" id="edit-corners" class="form-input" value="${card.grades?.corners?.score || 10}" min="1" max="10" step="0.5" onchange="onSubgradeChange('corners')" style="margin-bottom: 0; text-align: center;">
               <input type="text" id="edit-corners-notes" class="form-input" value="${(card.grades?.corners?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about corners..." style="margin-bottom: 0; font-size: 12px;">
             </div>
             <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
               <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">EDGES</div>
-              <input type="number" id="edit-edges" class="form-input" value="${card.grades?.edges?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="number" id="edit-edges" class="form-input" value="${card.grades?.edges?.score || 10}" min="1" max="10" step="0.5" onchange="onSubgradeChange('edges')" style="margin-bottom: 0; text-align: center;">
               <input type="text" id="edit-edges-notes" class="form-input" value="${(card.grades?.edges?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about edges..." style="margin-bottom: 0; font-size: 12px;">
             </div>
             <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
               <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">SURFACE</div>
-              <input type="number" id="edit-surface" class="form-input" value="${card.grades?.surface?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="number" id="edit-surface" class="form-input" value="${card.grades?.surface?.score || 10}" min="1" max="10" step="0.5" onchange="onSubgradeChange('surface')" style="margin-bottom: 0; text-align: center;">
               <input type="text" id="edit-surface-notes" class="form-input" value="${(card.grades?.surface?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about surface..." style="margin-bottom: 0; font-size: 12px;">
             </div>
             <div style="display: grid; grid-template-columns: 120px 80px 1fr; gap: 12px; align-items: start;">
               <div style="font-size: 12px; color: rgba(255,255,255,0.5); padding-top: 8px;">PRINT QUALITY</div>
-              <input type="number" id="edit-printQuality" class="form-input" value="${card.grades?.printQuality?.score || 10}" min="1" max="10" step="0.5" onchange="recalculateGrade()" style="margin-bottom: 0; text-align: center;">
+              <input type="number" id="edit-printQuality" class="form-input" value="${card.grades?.printQuality?.score || 10}" min="1" max="10" step="0.5" onchange="onSubgradeChange('printQuality')" style="margin-bottom: 0; text-align: center;">
               <input type="text" id="edit-printQuality-notes" class="form-input" value="${(card.grades?.printQuality?.notes || '').replace(/"/g, '&quot;')}" placeholder="Notes about print quality..." style="margin-bottom: 0; font-size: 12px;">
             </div>
           </div>
-          
-          <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">💾 Save All Changes</button>
+
+          <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">Save All Changes</button>
         </div>
 
         <!-- Summary -->
@@ -1573,38 +1595,172 @@
       1: 'POOR'
     };
 
+    // ── Grading mode state ───────────────────────────────────────────────────
+    let gradingMode = 'auto'; // 'auto' | 'manual'
+
+    function setGradeMode(mode) {
+      gradingMode = mode;
+      const autoBtn   = document.getElementById('grade-mode-auto');
+      const manualBtn = document.getElementById('grade-mode-manual');
+      const hint      = document.getElementById('grade-mode-hint');
+      const label     = document.getElementById('overall-grade-label');
+      const autoDisp  = document.getElementById('calculated-grade');
+      const mintDisp  = document.getElementById('calculated-mint');
+      const manualWrap = document.getElementById('manual-grade-wrap');
+
+      if (mode === 'auto') {
+        autoBtn.style.background   = '#10b981';
+        autoBtn.style.color        = '#fff';
+        manualBtn.style.background = 'rgba(255,255,255,0.1)';
+        manualBtn.style.color      = 'rgba(255,255,255,0.5)';
+        hint.textContent  = 'Overall = lowest subgrade';
+        label.textContent = 'OVERALL GRADE (AUTO)';
+        autoDisp.style.display  = 'block';
+        mintDisp.style.display  = 'block';
+        manualWrap.style.display = 'none';
+        recalculateGrade();
+      } else {
+        manualBtn.style.background = '#f59e0b';
+        manualBtn.style.color      = '#fff';
+        autoBtn.style.background   = 'rgba(255,255,255,0.1)';
+        autoBtn.style.color        = 'rgba(255,255,255,0.5)';
+        hint.textContent  = 'Set each field and overall grade independently';
+        label.textContent = 'OVERALL GRADE (MANUAL)';
+        autoDisp.style.display  = 'none';
+        mintDisp.style.display  = 'none';
+        manualWrap.style.display = 'block';
+        // Seed manual input with current auto value
+        const cur = parseFloat(document.getElementById('calculated-grade').textContent) || 10;
+        document.getElementById('manual-overall-grade').value = cur;
+        onManualOverallChange();
+      }
+    }
+
+    // ── Auto-generate note text for a given category + score ─────────────────
+    function generateNoteForScore(category, score) {
+      const s = parseFloat(score);
+      const templates = {
+        centering: {
+          10: 'Perfect centering, 55/45 or better on front.',
+          9:  'Near-perfect centering, 60/40 or better on front.',
+          8:  'Slightly off-center, within 65/35 tolerance.',
+          7:  'Noticeable off-centering, within 70/30 tolerance.',
+          6:  'Off-center, within 75/25 tolerance.',
+          5:  'Clearly off-center, outside 75/25 tolerance.',
+          4:  'Significantly off-center.',
+          3:  'Severely off-center.',
+          2:  'Extreme miscut centering.',
+          1:  'Miscut — centering is unacceptable.'
+        },
+        corners: {
+          10: 'All four corners are perfectly sharp under magnification.',
+          9:  'Corners sharp to the naked eye; minor wear under magnification.',
+          8:  'One corner with a minor flaw; remaining corners sharp.',
+          7:  'Light wear visible on one or two corners.',
+          6:  'Visible wear on multiple corners.',
+          5:  'Corners slightly rounded with moderate wear.',
+          4:  'Noticeable rounding on multiple corners.',
+          3:  'Heavy rounding on corners.',
+          2:  'Severely damaged corners.',
+          1:  'Corners are destroyed or missing.'
+        },
+        edges: {
+          10: 'All four edges are clean and sharp with no chipping.',
+          9:  'Edges sharp; minor roughness visible only under magnification.',
+          8:  'Minor edge chipping on one edge.',
+          7:  'Light chipping or wear on one or two edges.',
+          6:  'Visible chipping on multiple edges.',
+          5:  'Moderate edge wear present.',
+          4:  'Noticeable chipping and roughness on edges.',
+          3:  'Heavy edge wear and chipping.',
+          2:  'Severe edge damage.',
+          1:  'Edges are heavily damaged or torn.'
+        },
+        surface: {
+          10: 'Surface is flawless with full original gloss and no scratches.',
+          9:  'Surface shows one very minor flaw under strong light.',
+          8:  'Minor surface wear or very light scratching visible.',
+          7:  'Slight surface wear visible under normal light.',
+          6:  'Visible surface wear, print spots, or light scratches.',
+          5:  'Moderate surface wear; gloss noticeably reduced.',
+          4:  'Noticeable scratches, scuffing, or print defects.',
+          3:  'Heavy surface wear or major print defects.',
+          2:  'Significant damage to surface.',
+          1:  'Surface is destroyed.'
+        },
+        printQuality: {
+          10: 'Perfect focus, registration, and colour saturation with no print defects.',
+          9:  'Sharp focus with no visible print defects.',
+          8:  'Very minor print imperfection; sharp focus overall.',
+          7:  'Slight focus or colour inconsistency.',
+          6:  'Noticeable print defect or slight focus issue.',
+          5:  'Moderate print defects visible.',
+          4:  'Multiple or significant print defects.',
+          3:  'Heavy print defects affecting appearance.',
+          2:  'Severe print quality issues.',
+          1:  'Print quality is unacceptable.'
+        }
+      };
+      const bucket = Math.round(s); // snap to nearest whole for lookup
+      const clamped = Math.max(1, Math.min(10, bucket));
+      return (templates[category] && templates[category][clamped]) || '';
+    }
+
+    // ── Called whenever a subgrade input changes ──────────────────────────────
+    function onSubgradeChange(category) {
+      const score = parseFloat(document.getElementById('edit-' + category).value);
+      const notesEl = document.getElementById('edit-' + category + '-notes');
+      if (!isNaN(score) && notesEl) {
+        notesEl.value = generateNoteForScore(category, score);
+      }
+      if (gradingMode === 'auto') {
+        recalculateGrade();
+      }
+    }
+
+    // ── Called when manual overall input changes ──────────────────────────────
+    function onManualOverallChange() {
+      const val = parseFloat(document.getElementById('manual-overall-grade').value) || 1;
+      const clamped = Math.max(1, Math.min(10, val));
+      const color = getGradeColor(clamped);
+      const labelEl = document.getElementById('manual-mint-label');
+      if (labelEl) {
+        labelEl.textContent = PSA_GRADE_LABELS[clamped] || '';
+        labelEl.style.color = color;
+      }
+    }
+
     function recalculateGrade() {
-      const centering = parseFloat(document.getElementById('edit-centering').value) || 0;
-      const corners = parseFloat(document.getElementById('edit-corners').value) || 0;
-      const edges = parseFloat(document.getElementById('edit-edges').value) || 0;
-      const surface = parseFloat(document.getElementById('edit-surface').value) || 0;
+      const centering    = parseFloat(document.getElementById('edit-centering').value)    || 0;
+      const corners      = parseFloat(document.getElementById('edit-corners').value)      || 0;
+      const edges        = parseFloat(document.getElementById('edit-edges').value)        || 0;
+      const surface      = parseFloat(document.getElementById('edit-surface').value)      || 0;
       const printQuality = parseFloat(document.getElementById('edit-printQuality').value) || 0;
-      
-      // Calculate average and round to nearest 0.5
-      const average = (centering + corners + edges + surface + printQuality) / 5;
-      const rounded = Math.round(average * 2) / 2;
-      
-      // Update display
+
+      // Overall = lowest subgrade (not average)
+      const lowest = Math.min(centering, corners, edges, surface, printQuality);
+      const rounded = Math.round(lowest * 2) / 2;
+
       const gradeEl = document.getElementById('calculated-grade');
-      const mintEl = document.getElementById('calculated-mint');
-      const color = getGradeColor(rounded);
-      
+      const mintEl  = document.getElementById('calculated-mint');
+      const color   = getGradeColor(rounded);
+
       gradeEl.textContent = rounded;
       gradeEl.style.color = color;
-      mintEl.textContent = PSA_GRADE_LABELS[rounded] || '';
-      mintEl.style.color = color;
+      mintEl.textContent  = PSA_GRADE_LABELS[rounded] || '';
+      mintEl.style.color  = color;
     }
 
     async function saveCardEdits(cardId) {
       const cardIdentification = {
-        year: document.getElementById('edit-year').value.trim(),
-        company: document.getElementById('edit-company').value.trim(),
-        sport: document.getElementById('edit-sport').value.trim(),
-        cardSet: document.getElementById('edit-set').value.trim(),
-        series: document.getElementById('edit-series').value.trim(),
-        variant: document.getElementById('edit-variant').value.trim(),
+        year:              document.getElementById('edit-year').value.trim(),
+        company:           document.getElementById('edit-company').value.trim(),
+        sport:             document.getElementById('edit-sport').value.trim(),
+        cardSet:           document.getElementById('edit-set').value.trim(),
+        series:            document.getElementById('edit-series').value.trim(),
+        variant:           document.getElementById('edit-variant').value.trim(),
         playerOrCharacter: document.getElementById('edit-player').value.trim(),
-        cardNumber: document.getElementById('edit-number').value.trim()
+        cardNumber:        document.getElementById('edit-number').value.trim()
       };
 
       const grades = {
@@ -1630,9 +1786,15 @@
         }
       };
 
-      // Calculate overall grade
-      const average = (grades.centering.score + grades.corners.score + grades.edges.score + grades.surface.score + grades.printQuality.score) / 5;
-      const overallGrade = Math.round(average * 2) / 2;
+      // Overall grade: manual mode = use the manual input; auto = lowest subgrade
+      let overallGrade;
+      if (gradingMode === 'manual') {
+        overallGrade = parseFloat(document.getElementById('manual-overall-grade').value) || 1;
+        overallGrade = Math.max(1, Math.min(10, overallGrade));
+      } else {
+        const scores = [grades.centering.score, grades.corners.score, grades.edges.score, grades.surface.score, grades.printQuality.score];
+        overallGrade = Math.round(Math.min(...scores) * 2) / 2;
+      }
 
       try {
         const res = await fetch(`/api/admin/cards/${cardId}`, {
