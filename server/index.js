@@ -1494,6 +1494,16 @@ When identifying the card, follow professional labeling conventions:
 - "variant" = Any parallel or special version (e.g., YELLOW BORDER, REFRACTOR, HOLO, FIRST EDITION, etc.)
 - "cardNumber" = The card number WITH # symbol (e.g., #582, #RC-1, etc.)
 
+YEAR IDENTIFICATION - CRITICAL FOR BASEBALL CARDS:
+The year MUST be read directly from text printed on the card itself. Do NOT guess or infer the year from the card design, team uniforms, or player appearance.
+- Look for a year printed on the front or back of the card (e.g., "© 1987 Topps", "2019", "1952 TOPPS")
+- The copyright notice on the back is the most reliable source (e.g., "© 1984" means the year is 1984)
+- For Topps, Donruss, Fleer, and other vintage baseball sets the copyright year IS the card year
+- For sets that span two calendar years (e.g., hockey seasons like "2023-24"), use the season format
+- If NO year text is visible anywhere on the card, make your best estimate and note it is estimated
+- NEVER return the current year unless you can clearly see it printed on the card
+- Common mistake to avoid: a 1987 Topps baseball card with a modern-looking scan is still from 1987 — read the copyright, not the image quality
+
 IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks or other text:
 {
   "cardIdentification": {
