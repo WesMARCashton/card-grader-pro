@@ -1626,8 +1626,13 @@ IMPORTANT: Return ONLY valid JSON in this exact format, no markdown code blocks 
   try {
     return JSON.parse(raw);
   } catch (e) {
-    // Last resort: log raw text and throw a clean error
-    console.error('JSON parse failed. Raw Gemini text:', text.substring(0, 500));
+    console.error('=== GEMINI JSON PARSE FAILED ===');
+    console.error('Error:', e.message);
+    console.error('--- Full raw Gemini text ---');
+    console.error(text);
+    console.error('--- Cleaned JSON attempt ---');
+    console.error(raw);
+    console.error('================================');
     throw new Error('AI returned malformed JSON. Try re-grading the card.');
   }
 }
