@@ -879,7 +879,7 @@ app.get('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res
 app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const cardId = req.params.id;
-    const { cardIdentification, grades, overallGrade } = req.body;
+    const { cardIdentification, grades, overallGrade, summary, rewriteSummary } = req.body;
     
     const card = await cardsCollection.findOne({ _id: new ObjectId(cardId) });
     if (!card) {
@@ -908,6 +908,24 @@ app.put('/api/admin/cards/:id', authenticateToken, requireAdmin, async (req, res
     if (overallGrade !== undefined) {
       updateData.overallGrade = overallGrade;
       updateData.manuallyAdjusted = true;
+    }
+    
+    // Update summary if provided (rewritten to match adjusted grades)
+    if (typeof summary === 'string' && summary.trim()) {
+      updateData.summary = summary.trim();
+    } else if (rewriteSummary === true && (grades || overallGrade !== undefined)) {
+      // Bulk edit: rewrite the stored summary server-side. A failure here never blocks the grade edit.
+      try {
+        updateData.summary = await rewriteSummaryForGrades({
+          originalSummary: card.summary || '',
+          cardIdentification: updateData.cardIdentification || card.cardIdentification,
+          grades: updateData.grades || card.grades,
+          overallGrade: overallGrade !== undefined ? overallGrade : card.overallGrade,
+          previousOverallGrade: card.overallGrade
+        });
+      } catch (rewriteErr) {
+        console.error('Summary rewrite during card edit failed:', rewriteErr.message);
+      }
     }
     
     // Reset sync status when card is edited
@@ -1905,6 +1923,112 @@ Return ONLY valid JSON in this exact format:
   } catch (error) {
     console.error('Identify with writeup error:', error);
     res.status(500).json({ error: error.message || 'Failed to process card' });
+  }
+});
+
+// Rewrite the AI grading summary so it matches manually adjusted grades.
+// Text-only Gemini call (no images): keeps the original card-specific
+// observations, fixes anything that contradicts the new grades.
+async function rewriteSummaryForGrades({ originalSummary, cardIdentification, grades, overallGrade, previousOverallGrade }) {
+  const newGrade = parseFloat(overallGrade);
+
+  const categoryLabels = {
+    centering: 'Centering',
+    corners: 'Corners',
+    edges: 'Edges',
+    surface: 'Surface',
+    printQuality: 'Print Quality'
+  };
+
+  const gradeLines = Object.keys(categoryLabels)
+    .filter(key => grades && grades[key])
+    .map(key => `- ${categoryLabels[key]}: ${grades[key].score}/10${grades[key].notes ? ` — ${grades[key].notes}` : ''}`)
+    .join('\n');
+
+  const info = cardIdentification || {};
+  const cardLine = [info.year, info.company, info.cardSet, info.playerOrCharacter, info.variant, info.cardNumber]
+    .filter(Boolean)
+    .join(' ');
+
+  const prompt = `You are an expert collectible card grader. A human grader has reviewed this card and CORRECTED the AI grades. The corrected grades below are FINAL and authoritative.
+
+Card: ${cardLine || 'Unknown card'}
+${previousOverallGrade !== undefined && previousOverallGrade !== null ? `Previous (incorrect) overall grade: ${previousOverallGrade}\n` : ''}CORRECTED overall grade: ${newGrade} (NGA ${Math.round(newGrade)})
+CORRECTED subgrades:
+${gradeLines || '(not provided)'}
+
+Original summary (written for the previous grades):
+"""
+${originalSummary || '(none)'}
+"""
+
+Rewrite the summary so it is fully consistent with the CORRECTED grades:
+- State the overall grade as ${newGrade}. Remove or replace every mention of the previous grade or any other grade number that no longer applies.
+- Each condition statement (centering, corners, edges, surface, print quality) must match its corrected subgrade. If the original praises a category that is now graded lower, describe wear/flaws appropriate to the new score instead.
+- Keep card-specific details from the original (player, set, notable features, specific observations) wherever they do not contradict the corrected grades.
+- Keep the same tone, style and length: 2-3 paragraphs of plain text.
+- Do not mention that the grade was corrected, adjusted, or changed by a human.
+
+Return ONLY valid JSON: {"summary": "string"}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || data.error) {
+    console.error('Gemini rewrite-summary error:', JSON.stringify(data, null, 2));
+    throw new Error(data.error?.message || 'Failed to rewrite summary');
+  }
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let summary = '';
+  try {
+    let jsonText = text;
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) jsonText = codeBlockMatch[1];
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    summary = JSON.parse(jsonMatch ? jsonMatch[0] : jsonText).summary || '';
+  } catch (parseErr) {
+    // Fall back to raw text if the model didn't return clean JSON
+    summary = text.replace(/```(?:json)?/g, '').trim();
+  }
+
+  if (!summary) {
+    throw new Error('Empty summary returned');
+  }
+
+  return summary.trim();
+}
+
+app.post('/api/rewrite-summary', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { originalSummary, cardIdentification, grades, overallGrade, previousOverallGrade } = req.body;
+
+    if (isNaN(parseFloat(overallGrade)) || !grades) {
+      return res.status(400).json({ error: 'overallGrade and grades are required' });
+    }
+
+    const summary = await rewriteSummaryForGrades({ originalSummary, cardIdentification, grades, overallGrade, previousOverallGrade });
+    res.json({ summary });
+  } catch (error) {
+    console.error('Rewrite summary error:', error);
+    res.status(500).json({ error: error.message || 'Failed to rewrite summary' });
   }
 });
 

@@ -1395,6 +1395,84 @@
     let collection = [];
     let isManuallyAdjusted = false;
 
+    // ── Summary rewrite (keeps Grading Summary in sync with manual grade changes) ──
+    let summaryRewriteTimer = null;
+    let summaryRewriteSeq = 0;
+    let summaryRewritePromise = null;
+    let pendingSummaryRewrite = null; // the queued (debounced) rewrite, so Save can fire it immediately
+
+    function gradesMatchOriginal() {
+      if (!originalGradingResult || !currentGradingResult) return false;
+      if (currentGradingResult.overallGrade !== originalGradingResult.overallGrade) return false;
+      for (const key in originalGradingResult.grades) {
+        if (currentGradingResult.grades[key]?.score !== originalGradingResult.grades[key]?.score) return false;
+      }
+      return true;
+    }
+
+    function scheduleSummaryRewrite() {
+      if (!currentGradingResult || !originalGradingResult) return;
+      const summaryEl = document.getElementById('summary-text');
+
+      clearTimeout(summaryRewriteTimer);
+      const seq = ++summaryRewriteSeq;
+
+      // Back to the AI's original grades → restore the original summary, no API call
+      if (gradesMatchOriginal()) {
+        currentGradingResult.summary = originalGradingResult.summary;
+        summaryEl.textContent = originalGradingResult.summary;
+        summaryEl.style.opacity = '';
+        summaryRewritePromise = null;
+        pendingSummaryRewrite = null;
+        return;
+      }
+
+      summaryEl.textContent = 'Updating summary to match new grade…';
+      summaryEl.style.opacity = '0.6';
+
+      // Debounce: wait for clicks to settle, then make one call
+      summaryRewritePromise = new Promise(resolve => {
+        const run = async () => {
+          summaryRewriteTimer = null;
+          pendingSummaryRewrite = null;
+          try {
+            if (seq !== summaryRewriteSeq || !currentGradingResult) return;
+            const res = await fetch('/api/rewrite-summary', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                originalSummary: originalGradingResult.summary,
+                cardIdentification: currentGradingResult.cardIdentification,
+                grades: currentGradingResult.grades,
+                overallGrade: currentGradingResult.overallGrade,
+                previousOverallGrade: originalGradingResult.overallGrade
+              })
+            });
+            const data = await res.json();
+            if (seq !== summaryRewriteSeq) return resolve(); // a newer change superseded this one
+            if (res.ok && data.summary) {
+              currentGradingResult.summary = data.summary;
+              summaryEl.textContent = data.summary;
+            } else {
+              summaryEl.textContent = currentGradingResult.summary || '';
+              console.error('Summary rewrite failed:', data.error);
+            }
+          } catch (e) {
+            if (seq === summaryRewriteSeq && currentGradingResult) summaryEl.textContent = currentGradingResult.summary || '';
+            console.error('Summary rewrite error:', e);
+          } finally {
+            if (seq === summaryRewriteSeq) summaryEl.style.opacity = '';
+            resolve();
+          }
+        };
+        pendingSummaryRewrite = run;
+        summaryRewriteTimer = setTimeout(run, 1000);
+      });
+    }
+
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app-screen');
     const loginForm = document.getElementById('login-form');
@@ -1693,6 +1771,17 @@
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving...';
 
+      // If a summary rewrite is pending, fire it now and wait so the saved summary matches the grade
+      if (summaryRewritePromise) {
+        saveBtn.textContent = 'Updating summary...';
+        if (summaryRewriteTimer && pendingSummaryRewrite) {
+          clearTimeout(summaryRewriteTimer);
+          pendingSummaryRewrite();
+        }
+        await summaryRewritePromise;
+        saveBtn.textContent = 'Saving...';
+      }
+
       try {
         const cardToSave = {
           manuallyAdjusted: isManuallyAdjusted,
@@ -1871,6 +1960,9 @@
       
       // Update overall display
       updateOverallDisplay();
+
+      // Rewrite the Grading Summary to match
+      scheduleSummaryRewrite();
     }
     
     function updateOverallDisplay() {
@@ -1939,6 +2031,9 @@
       isManuallyAdjusted = newGrade !== originalGradingResult.overallGrade;
 
       updateGradeDisplay();
+
+      // Rewrite the Grading Summary to match
+      scheduleSummaryRewrite();
     }
 
     function updateGradeDisplay() {
@@ -2186,6 +2281,11 @@
       currentGradingResult = null;
       originalGradingResult = null;
       isManuallyAdjusted = false;
+      clearTimeout(summaryRewriteTimer);
+      summaryRewriteTimer = null;
+      summaryRewriteSeq++;
+      summaryRewritePromise = null;
+      pendingSummaryRewrite = null;
       results.classList.remove('visible');
       hideError(gradeError);
       document.getElementById('save-message').classList.add('hidden');
@@ -2228,6 +2328,11 @@
           originalGradingResult = JSON.parse(JSON.stringify(data));
           currentGradingResult = data;
           isManuallyAdjusted = false;
+          clearTimeout(summaryRewriteTimer);
+          summaryRewriteTimer = null;
+          summaryRewriteSeq++;
+          summaryRewritePromise = null;
+          pendingSummaryRewrite = null;
           
           displayResults(data);
 

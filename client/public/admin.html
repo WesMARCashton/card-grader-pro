@@ -1354,6 +1354,7 @@
         const card = await res.json();
         
         currentEditCardId = cardId;
+        resetAdminSummaryRewrite(card);
         const color = getGradeColor(card.overallGrade);
         const playerName = card.cardIdentification?.playerOrCharacter || 'Unknown Card';
 
@@ -1507,13 +1508,11 @@
           <button class="btn btn-primary" onclick="saveCardEdits('${card.id}')" style="margin-top: 16px; width: 100%;">Save All Changes</button>
         </div>
 
-        <!-- Summary -->
-        ${card.summary ? `
-          <div class="detail-section">
+        <!-- Summary (rewritten automatically when grades are adjusted) -->
+          <div class="detail-section" id="edit-summary-section" style="${card.summary ? '' : 'display: none;'}">
             <h3>Grading Summary</h3>
-            <p class="summary-text">${card.summary}</p>
+            <p class="summary-text" id="edit-summary-text">${card.summary || ''}</p>
           </div>
-        ` : ''}
 
         <!-- Market Notes -->
         ${card.marketNotes ? `
@@ -1619,6 +1618,7 @@
         mintDisp.style.display  = 'block';
         manualWrap.style.display = 'none';
         recalculateGrade();
+        scheduleAdminSummaryRewrite();
       } else {
         manualBtn.style.background = '#f59e0b';
         manualBtn.style.color      = '#fff';
@@ -1706,6 +1706,129 @@
       return (templates[category] && templates[category][clamped]) || '';
     }
 
+    // ── Summary rewrite (keeps Grading Summary in sync with grade edits) ───────
+    let editCardOriginal = null;        // { summary, overallGrade, grades } as loaded
+    let editedSummary = null;           // rewritten summary to save (null = unchanged)
+    let adminSummaryTimer = null;
+    let adminSummarySeq = 0;
+    let adminSummaryPromise = null;
+    let adminPendingRewrite = null;
+    let adminSummaryFailed = false;
+
+    function resetAdminSummaryRewrite(card) {
+      clearTimeout(adminSummaryTimer);
+      adminSummaryTimer = null;
+      adminSummarySeq++;
+      adminSummaryPromise = null;
+      adminPendingRewrite = null;
+      adminSummaryFailed = false;
+      editedSummary = null;
+      editCardOriginal = card ? {
+        summary: card.summary || '',
+        overallGrade: card.overallGrade,
+        cardIdentification: card.cardIdentification || {},
+        grades: JSON.parse(JSON.stringify(card.grades || {}))
+      } : null;
+    }
+
+    // Same rules as saveCardEdits(): manual mode = typed overall, auto = lowest subgrade
+    function collectEditGrades() {
+      const grades = {};
+      for (const key of ['centering', 'corners', 'edges', 'surface', 'printQuality']) {
+        const scoreEl = document.getElementById('edit-' + key);
+        const notesEl = document.getElementById('edit-' + key + '-notes');
+        if (!scoreEl) return null;
+        grades[key] = {
+          score: parseFloat(scoreEl.value) || 10,
+          notes: notesEl ? notesEl.value.trim() : ''
+        };
+      }
+      let overallGrade;
+      if (gradingMode === 'manual') {
+        overallGrade = parseFloat(document.getElementById('manual-overall-grade').value) || 1;
+        overallGrade = Math.max(1, Math.min(10, overallGrade));
+      } else {
+        overallGrade = Math.round(Math.min(...Object.values(grades).map(g => g.score)) * 2) / 2;
+      }
+      return { grades, overallGrade };
+    }
+
+    function scheduleAdminSummaryRewrite() {
+      if (!editCardOriginal) return;
+      const summaryEl = document.getElementById('edit-summary-text');
+      const sectionEl = document.getElementById('edit-summary-section');
+      const current = collectEditGrades();
+      if (!summaryEl || !current) return;
+
+      clearTimeout(adminSummaryTimer);
+      adminSummaryTimer = null;
+      const seq = ++adminSummarySeq;
+      adminSummaryFailed = false;
+
+      // Back to the loaded grades → restore the stored summary, no API call
+      const unchanged = current.overallGrade === editCardOriginal.overallGrade &&
+        Object.keys(current.grades).every(k => current.grades[k].score === (editCardOriginal.grades[k]?.score ?? 10));
+      if (unchanged) {
+        editedSummary = null;
+        adminSummaryPromise = null;
+        adminPendingRewrite = null;
+        summaryEl.textContent = editCardOriginal.summary;
+        summaryEl.style.opacity = '';
+        if (sectionEl) sectionEl.style.display = editCardOriginal.summary ? '' : 'none';
+        return;
+      }
+
+      if (sectionEl) sectionEl.style.display = '';
+      summaryEl.textContent = 'Updating summary to match new grade…';
+      summaryEl.style.opacity = '0.6';
+
+      adminSummaryPromise = new Promise(resolve => {
+        const run = async () => {
+          adminSummaryTimer = null;
+          adminPendingRewrite = null;
+          const latest = collectEditGrades() || current;
+          try {
+            if (seq !== adminSummarySeq || !editCardOriginal) return;
+            const res = await fetch('/api/rewrite-summary', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                originalSummary: editCardOriginal.summary,
+                cardIdentification: editCardOriginal.cardIdentification,
+                grades: latest.grades,
+                overallGrade: latest.overallGrade,
+                previousOverallGrade: editCardOriginal.overallGrade
+              })
+            });
+            const data = await res.json();
+            if (seq !== adminSummarySeq) return;
+            if (res.ok && data.summary) {
+              editedSummary = data.summary;
+              summaryEl.textContent = data.summary;
+            } else {
+              adminSummaryFailed = true;
+              summaryEl.textContent = editedSummary || editCardOriginal.summary;
+              console.error('Summary rewrite failed:', data.error);
+            }
+          } catch (e) {
+            if (seq === adminSummarySeq && editCardOriginal) {
+              adminSummaryFailed = true;
+              summaryEl.textContent = editedSummary || editCardOriginal.summary;
+            }
+            console.error('Summary rewrite error:', e);
+          } finally {
+            if (seq === adminSummarySeq) summaryEl.style.opacity = '';
+            resolve();
+          }
+        };
+        adminPendingRewrite = run;
+        adminSummaryTimer = setTimeout(run, 1000);
+      });
+    }
+
     // ── Called whenever a subgrade input changes ──────────────────────────────
     function onSubgradeChange(category) {
       const score = parseFloat(document.getElementById('edit-' + category).value);
@@ -1716,6 +1839,7 @@
       if (gradingMode === 'auto') {
         recalculateGrade();
       }
+      scheduleAdminSummaryRewrite();
     }
 
     // ── Called when manual overall input changes ──────────────────────────────
@@ -1728,6 +1852,7 @@
         labelEl.textContent = PSA_GRADE_LABELS[clamped] || '';
         labelEl.style.color = color;
       }
+      scheduleAdminSummaryRewrite();
     }
 
     function recalculateGrade() {
@@ -1796,6 +1921,21 @@
         overallGrade = Math.round(Math.min(...scores) * 2) / 2;
       }
 
+      // Make sure the Grading Summary matches the grade being saved
+      if (adminSummaryPromise) {
+        if (adminSummaryTimer && adminPendingRewrite) {
+          clearTimeout(adminSummaryTimer);
+          adminPendingRewrite();
+        }
+        await adminSummaryPromise;
+      }
+      if (adminSummaryFailed && !confirm('The Grading Summary could not be updated to match the new grade. Save anyway with the old summary?')) {
+        return;
+      }
+
+      const payload = { cardIdentification, grades, overallGrade };
+      if (editedSummary) payload.summary = editedSummary;
+
       try {
         const res = await fetch(`/api/admin/cards/${cardId}`, {
           method: 'PUT',
@@ -1803,7 +1943,7 @@
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ cardIdentification, grades, overallGrade })
+          body: JSON.stringify(payload)
         });
 
         const data = await res.json();
@@ -2161,7 +2301,7 @@
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ grades, overallGrade })
+            body: JSON.stringify({ grades, overallGrade, rewriteSummary: true })
           });
           
           if (res.ok) {
